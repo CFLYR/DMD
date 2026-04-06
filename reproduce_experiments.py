@@ -13,7 +13,9 @@ import sys
 import json
 import argparse
 import subprocess
+import logging
 from pathlib import Path
+from io import StringIO
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -28,11 +30,46 @@ from run import DMD_run
 class ExperimentRunner:
     """实验运行器 - 管理不同的实验配置"""
     
-    def __init__(self, config_file="config/config.json", results_dir="result/experiments"):
+    def __init__(self, config_file="config/config.json", results_dir="result/experiments", log_dir="log"):
         self.config_file = Path(config_file)
         self.results_dir = Path(results_dir)
+        self.log_dir = Path(log_dir)
         self.results_dir.mkdir(parents=True, exist_ok=True)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 设置日志文件
+        self.exp_log_file = self.log_dir / f"experiments_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        self._setup_logger()
         self.results_log = []
+        
+    def _setup_logger(self):
+        """配置日志记录器"""
+        self.logger = logging.getLogger('DMD_Experiments')
+        self.logger.setLevel(logging.DEBUG)
+        
+        # 文件处理器
+        fh = logging.FileHandler(self.exp_log_file, encoding='utf-8')
+        fh.setLevel(logging.DEBUG)
+        
+        # 控制台处理器
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.INFO)
+        
+        # 格式化器
+        formatter = logging.Formatter(
+            '%(asctime)s - [%(levelname)s] - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        fh.setFormatter(formatter)
+        ch.setFormatter(formatter)
+        
+        self.logger.addHandler(fh)
+        self.logger.addHandler(ch)
+        
+        self.logger.info("="*80)
+        self.logger.info("DMD论文复现 - 实验启动")
+        self.logger.info(f"日志文件: {self.exp_log_file}")
+        self.logger.info("="*80)
         
     def run_experiment(self, dataset_name, aligned=True, use_bert=False, 
                       seeds=[1111, 1112, 1113], gpu_ids=[0]):
@@ -51,9 +88,18 @@ class ExperimentRunner:
         """
         
         setting_name = self._get_setting_name(dataset_name, aligned, use_bert)
-        print(f"\n{'='*80}")
-        print(f"开始实验: {setting_name}")
-        print(f"{'='*80}")
+        start_time = datetime.now()
+        
+        self.logger.info("")
+        self.logger.info("="*80)
+        self.logger.info(f"【实验开始】{setting_name}")
+        self.logger.info("="*80)
+        self.logger.info(f"开始时间: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        self.logger.info(f"数据集: {dataset_name.upper()}")
+        self.logger.info(f"对齐模式: {'Aligned' if aligned else 'Unaligned'}")
+        self.logger.info(f"特征类型: {'BERT (768dim)' if use_bert else 'GloVe (300dim)'}")
+        self.logger.info(f"随机种子: {seeds}")
+        self.logger.info(f"GPU列表: {gpu_ids}")
         
         # 准备config修改
         config_updates = {
@@ -63,15 +109,25 @@ class ExperimentRunner:
             'use_finetune': use_bert,  # 只有用BERT时才微调
         }
         
+        # 为此实验生成独特的模型保存路径 (关键!)
+        align_str = 'aligned' if aligned else 'unaligned'
+        bert_str = 'bert' if use_bert else 'glove'
+        model_save_dir = Path('./pt') / dataset_name / align_str / bert_str
+        model_save_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.logger.info(f"模型保存目录: {model_save_dir}")
+        self.logger.info("-"*80)
+        
         try:
             # 运行训练
+            self.logger.info("▶ 开始训练...")
             result = DMD_run(
                 model_name='dmd',
                 dataset_name=dataset_name,
                 config=config_updates,
                 config_file=str(self.config_file),
                 seeds=seeds,
-                model_save_dir="./pt",
+                model_save_dir=str(model_save_dir),
                 res_save_dir="./result",
                 log_dir="./log",
                 mode='train',
@@ -81,13 +137,14 @@ class ExperimentRunner:
             )
             
             # 运行测试
+            self.logger.info("▶ 开始测试...")
             test_result = DMD_run(
                 model_name='dmd',
                 dataset_name=dataset_name,
                 config=config_updates,
                 config_file=str(self.config_file),
                 seeds=seeds,
-                model_save_dir="./pt",
+                model_save_dir=str(model_save_dir),
                 res_save_dir="./result",
                 log_dir="./log",
                 mode='test',
@@ -96,12 +153,48 @@ class ExperimentRunner:
                 verbose_level=1
             )
             
-            print(f"✓ 实验完成: {setting_name}")
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds() / 60
+            
+            self.logger.info("-"*80)
+            self.logger.info(f"✓ 实验成功完成: {setting_name}")
+            self.logger.info(f"结束时间: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            self.logger.info(f"耗时: {duration:.1f} 分钟")
+            self.logger.info("="*80)
+            
+            # 记录到结果log
+            self.results_log.append({
+                'setting': setting_name,
+                'status': '✓ 通过',
+                'start_time': start_time.isoformat(),
+                'end_time': end_time.isoformat(),
+                'duration_minutes': round(duration, 2),
+                'model_dir': str(model_save_dir)
+            })
+            
             return True
             
         except Exception as e:
-            print(f"✗ 实验失败: {setting_name}")
-            print(f"  错误信息: {str(e)}")
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds() / 60
+            
+            self.logger.error("-"*80)
+            self.logger.error(f"✗ 实验失败: {setting_name}")
+            self.logger.error(f"错误信息: {str(e)}")
+            self.logger.error(f"耗时: {duration:.1f} 分钟")
+            self.logger.error("="*80)
+            
+            # 记录到结果log
+            self.results_log.append({
+                'setting': setting_name,
+                'status': '✗ 失败',
+                'start_time': start_time.isoformat(),
+                'end_time': end_time.isoformat(),
+                'duration_minutes': round(duration, 2),
+                'error': str(e),
+                'model_dir': str(model_save_dir)
+            })
+            
             return False
     
     def run_all_experiments(self, seeds=[1111, 1112, 1113], gpu_ids=[0]):
@@ -119,8 +212,12 @@ class ExperimentRunner:
             ('mosei', False, False, 'MOSEI Unaligned'),
         ]
         
-        summary = []
-        for dataset, aligned, use_bert, desc in experiments:
+        self.logger.info(f"\n【全量实验】开始 - 共{len(experiments)}个配置")
+        self.logger.info(f"GPU列表: {gpu_ids}")
+        self.logger.info("-"*80)
+        
+        for i, (dataset, aligned, use_bert, desc) in enumerate(experiments, 1):
+            self.logger.info(f"\n[{i}/{len(experiments)}] {desc}")
             success = self.run_experiment(
                 dataset_name=dataset,
                 aligned=aligned,
@@ -128,13 +225,44 @@ class ExperimentRunner:
                 seeds=seeds,
                 gpu_ids=gpu_ids
             )
-            
-            summary.append({
-                'setting': desc,
-                'status': '✓ 通过' if success else '✗ 失败'
-            })
         
-        return summary
+        # 保存汇总报告
+        self._save_summary_report()
+        
+        return self.results_log
+    
+    def _save_summary_report(self):
+        """保存实验汇总报告"""
+        self.logger.info("\n" + "="*80)
+        self.logger.info("【实验汇总报告】")
+        self.logger.info("="*80)
+        
+        passed = sum(1 for r in self.results_log if r['status'] == '✓ 通过')
+        failed = sum(1 for r in self.results_log if r['status'] == '✗ 失败')
+        total_time = sum(r.get('duration_minutes', 0) for r in self.results_log)
+        
+        self.logger.info(f"总计: {len(self.results_log)} 个实验")
+        self.logger.info(f"成功: {passed} 个 ✓")
+        self.logger.info(f"失败: {failed} 个 ✗")
+        self.logger.info(f"总耗时: {total_time:.1f} 分钟")
+        self.logger.info("-"*80)
+        
+        for i, result in enumerate(self.results_log, 1):
+            status_symbol = "✓" if result['status'] == '✓ 通过' else "✗"
+            self.logger.info(
+                f"{i}. {status_symbol} {result['setting']:30s} "
+                f"({result['duration_minutes']:.1f}min) "
+                f"-> {result['model_dir']}"
+            )
+        
+        self.logger.info("="*80)
+        self.logger.info(f"完整日志已保存: {self.exp_log_file}\n")
+        
+        # 同时保存为CSV格式便于后续分析
+        csv_file = self.log_dir / f"experiments_{datetime.now().strftime('%Y%m%d_%H%M%S')}_summary.csv"
+        df = pd.DataFrame(self.results_log)
+        df.to_csv(csv_file, index=False, encoding='utf-8-sig')
+        self.logger.info(f"CSV汇总已保存: {csv_file}\n")
     
     def _get_setting_name(self, dataset, aligned, use_bert):
         """生成配置名称"""
@@ -253,13 +381,6 @@ def main():
         print("\n▶ 开始运行所有实验组合...\n")
         summary = runner.run_all_experiments(seeds=args.seeds, gpu_ids=args.gpu)
         
-        print("\n" + "="*80)
-        print("📊 实验总结")
-        print("="*80)
-        for item in summary:
-            print(f"  {item['setting']:30s} → {item['status']}")
-        print("="*80)
-        
     else:
         # 单个实验
         if not args.dataset:
@@ -286,11 +407,10 @@ def main():
         )
         
         if success:
-            print(f"\n✓ 实验成功完成！")
-            print(f"  结果保存在: ./result/experiments/")
-            print(f"  日志保存在: ./log/")
+            runner.logger.info(f"\n✓ 实验成功完成!")
+            runner.logger.info(f"  日志保存在: {runner.exp_log_file}")
         else:
-            print(f"\n✗ 实验执行失败，请检查日志")
+            runner.logger.error(f"\n✗ 实验执行失败，请检查日志")
             sys.exit(1)
 
 

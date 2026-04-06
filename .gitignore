@@ -1,3 +1,4 @@
 *.pkl
 *.pyc
 *.safetensors
+*.DS_Store

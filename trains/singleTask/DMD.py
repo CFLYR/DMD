@@ -137,13 +137,12 @@ class DMD():
                     loss_sa_sla = self.MSE(output['s_a'].permute(1, 2, 0), output['s_a_r'])
                     loss_s_sr = loss_sl_slr + loss_sv_slv + loss_sa_sla
 
-                    # ort loss
-                    cosine_similarity_s_c_l = self.cosine(output['s_l'], output['c_l'],
-                                                          torch.tensor([-1]).cuda()).mean(0)
-                    cosine_similarity_s_c_v = self.cosine(output['s_v'], output['c_v'],
-                                                          torch.tensor([-1]).cuda()).mean(0)
-                    cosine_similarity_s_c_a = self.cosine(output['s_a'], output['c_a'],
-                                                          torch.tensor([-1]).cuda()).mean(0)
+                    # ort loss (using pooled features for cosine embedding loss)
+                    # Shape: [batch, channels] with target [-1] for each sample
+                    target_ort = torch.full((output['s_l_pooled'].size(0),), -1).to(self.args.device)
+                    cosine_similarity_s_c_l = self.cosine(output['s_l_pooled'], output['c_l_pooled'], target_ort)
+                    cosine_similarity_s_c_v = self.cosine(output['s_v_pooled'], output['c_v_pooled'], target_ort)
+                    cosine_similarity_s_c_a = self.cosine(output['s_a_pooled'], output['c_a_pooled'], target_ort)
                     loss_ort = cosine_similarity_s_c_l + cosine_similarity_s_c_v + cosine_similarity_s_c_a
 
                     # margin loss

@@ -180,6 +180,15 @@ class DMD(nn.Module):
         s_v_r = self.encoder_s_v(recon_v)
         s_a_r = self.encoder_s_a(recon_a)
 
+        # Pool features for orthogonality loss (before permute)
+        # Shape: [batch, channels, time_steps] -> [batch, channels]
+        s_l_pooled = s_l.mean(dim=2)
+        s_v_pooled = s_v.mean(dim=2)
+        s_a_pooled = s_a.mean(dim=2)
+        c_l_pooled = c_l.mean(dim=2)
+        c_v_pooled = c_v.mean(dim=2)
+        c_a_pooled = c_a.mean(dim=2)
+
         s_l = s_l.permute(2, 0, 1)
         s_v = s_v.permute(2, 0, 1)
         s_a = s_a.permute(2, 0, 1)
@@ -302,12 +311,18 @@ class DMD(nn.Module):
             's_l': s_l,
             's_v': s_v,
             's_a': s_a,
+            's_l_pooled': s_l_pooled,
+            's_v_pooled': s_v_pooled,
+            's_a_pooled': s_a_pooled,
             'proj_s_l': proj_s_l,
             'proj_s_v': proj_s_v,
             'proj_s_a': proj_s_a,
             'c_l': c_l,
             'c_v': c_v,
             'c_a': c_a,
+            'c_l_pooled': c_l_pooled,
+            'c_v_pooled': c_v_pooled,
+            'c_a_pooled': c_a_pooled,
             's_l_r': s_l_r,
             's_v_r': s_v_r,
             's_a_r': s_a_r,

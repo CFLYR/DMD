@@ -1,0 +1,7 @@
+easydict
+numpy
+pandas
+transformers
+scikit-learn
+tqdm
+pynvml

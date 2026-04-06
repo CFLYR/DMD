@@ -207,8 +207,8 @@ class DMD():
             test_results = self.do_test(model[0], dataloader['test'], mode="TEST")
             cur_valid = val_results[self.args.KeyEval]
             scheduler.step(val_results['Loss'])
-            # save each epoch model
-            torch.save(model[0].state_dict(), './pt/' + str(epochs) + '.pth')
+            # save each epoch model (commented to save disk space)
+            # torch.save(model[0].state_dict(), './pt/' + str(epochs) + '.pth')
             # save best model
             isBetter = cur_valid <= (best_valid - 1e-6) if min_or_max == 'min' else cur_valid >= (best_valid + 1e-6)
             if isBetter:

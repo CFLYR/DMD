@@ -111,6 +111,10 @@ def DMD_run(
         df.loc[len(df)] = res
         df.to_csv(csv_file, index=None)
         logger.info(f"Results saved to {csv_file}.")
+    
+    # Return results for programmatic access
+    # For single seed, return the result directly; for multiple seeds, return first result
+    return model_results[0] if len(model_results) == 1 else model_results[0]
 
 
 def _run(args, num_workers=4, is_tune=False, from_sena=False):
@@ -174,7 +178,9 @@ def _run(args, num_workers=4, is_tune=False, from_sena=False):
         model.load_state_dict(torch.load(args['model_save_path']))
         results = trainer.do_test(model, dataloader['test'], mode="TEST")
         sys.stdout.flush()
-        input('[Press Any Key to start another run]')
+        # Only wait for input if in interactive mode (verbose_level >= 2)
+        if args.get('verbose_level', 1) >= 2:
+            input('[Press Any Key to start another run]')
     else:
         epoch_results = trainer.do_train(model, dataloader, return_epoch_results=from_sena)
         model[0].load_state_dict(torch.load(args['model_save_path']))

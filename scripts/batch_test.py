@@ -117,9 +117,8 @@ def batch_test():
         print(f"\n[{i+1}/{len(EXPERIMENTS)}]", end=" ")
         result, error = test_single_experiment(exp)
         
-        if result:
-            # Extract metrics (assuming result is a dict with metric keys)
-            # The actual keys depend on the DMD_run return format
+        if result is not None:
+            # Extract metrics (result is a dict with keys: Acc_2, F1_score, Acc_7, MAE, Loss)
             results.append({
                 "experiment": exp["name"],
                 "dataset": exp["dataset"].upper(),
@@ -146,28 +145,30 @@ def batch_test():
             result = item["result"]
             expected = item["expected"]
             
-            # Try to extract metrics from result
-            # Note: The actual metric keys depend on DMD implementation
-            # Common keys might be: 'Mult_acc_7', 'Mult_acc_2', 'Mult_F1_score'
+            # Extract metrics from result
+            # DMD returns: Acc_2, F1_score, Acc_7, MAE, Loss (all in 0-1 range except MAE)
             row = {
                 "Experiment": exp_name,
                 "Dataset": item["dataset"],
                 "Paper Reference": item["paper_ref"],
             }
             
-            # Add metrics with comparison to paper
-            for metric in ["ACC7", "ACC2", "F1"]:
-                # Try different possible key formats
+            # Map result keys to paper metric names and convert to percentage
+            metric_mapping = {
+                "ACC7": "Acc_7",
+                "ACC2": "Acc_2", 
+                "F1": "F1_score"
+            }
+            
+            for paper_metric, result_key in metric_mapping.items():
                 result_value = None
-                for key in [metric, f"Mult_acc_7", f"Mult_acc_2", f"Mult_F1_score", 
-                           f"{metric.lower()}", f"test_{metric.lower()}"]:
-                    if key in result:
-                        result_value = result[key] * 100 if result[key] <= 1 else result[key]
-                        break
+                if result_key in result:
+                    # Convert from 0-1 range to percentage
+                    result_value = result[result_key] * 100
                 
-                expected_value = expected.get(metric)
-                row[f"{metric} (Our)"] = format_metric(result_value)
-                row[f"{metric} (Paper)"] = f"{expected_value:.1f}" if expected_value else "N/A"
+                expected_value = expected.get(paper_metric)
+                row[f"{paper_metric} (Our)"] = format_metric(result_value, expected_value)
+                row[f"{paper_metric} (Paper)"] = f"{expected_value:.1f}" if expected_value else "N/A"
             
             table_data.append(row)
         

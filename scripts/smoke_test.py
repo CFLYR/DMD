@@ -43,6 +43,7 @@ def verify_model_files(experiment_results):
     """
     Verify that all experiments generated unique model files
     """
+    from pathlib import Path
     print("\n" + "=" * 80)
     print("MODEL FILE VERIFICATION")
     print("=" * 80)
@@ -52,17 +53,18 @@ def verify_model_files(experiment_results):
     
     for result in experiment_results:
         exp_name = result["experiment"]
-        model_path = result["model_path"]
+        model_path_str = result["model_path"]
+        model_path = Path(model_path_str)
         
         exists = model_path.exists()
         status = "✓ EXISTS" if exists else "✗ MISSING"
         
-        print(f"{exp_name:<30} {status:<15} {model_path}")
+        print(f"{exp_name:<30} {status:<15} {model_path_str}")
         
-        if str(model_path) in all_paths:
-            duplicates.append(model_path)
+        if model_path_str in all_paths:
+            duplicates.append(model_path_str)
         else:
-            all_paths.append(str(model_path))
+            all_paths.append(model_path_str)
     
     print("=" * 80)
     print(f"Total unique paths: {len(set(all_paths))}/{len(experiment_results)}")
@@ -152,7 +154,7 @@ def run_smoke_test(epochs=2, cleanup=True):
                 print(f"  ✓ Model file created: {file_size:.2f} MB")
                 experiment_results.append({
                     "experiment": exp_name,
-                    "model_path": model_path,
+                    "model_path": str(model_path),
                     "size_mb": file_size,
                     "status": "success"
                 })

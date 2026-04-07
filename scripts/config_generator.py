@@ -1,10 +1,11 @@
 """
 Configuration Generator for DMD Experiments
-Generates 4 BERT experiment configurations for reproducing Table 1 & 2 from the paper
+Generates 2 BERT aligned experiment configurations for reproducing Table 1 & 2 from the paper
 
 NOTE: Data files only contain BERT (768-dim) features, not GloVe (300-dim).
 The 'text' key in .pkl files stores BERT features, despite the naming.
-Only BERT experiments (rows with * in paper tables) can be reproduced.
+Only the 2 BERT aligned experiments reported in the paper can be reproduced.
+Unaligned experiments are not in the paper, so they are excluded.
 """
 import json
 import os
@@ -110,9 +111,10 @@ BASE_CONFIG = {
     }
 }
 
-# 4 BERT experiment configurations for reproducing Table 1 & 2 (rows with *)
+# 2 BERT aligned experiment configurations - exactly matching paper Table 1 & 2 (rows with *)
 # NOTE: Data files only contain BERT features (768-dim), no GloVe (300-dim)
 # The 'text' key in .pkl files stores 768-dim BERT, not 300-dim GloVe
+# Paper only reports Aligned BERT results, so we only reproduce those 2 experiments
 EXPERIMENTS = [
     {
         "name": "mosi_aligned_bert",
@@ -123,28 +125,12 @@ EXPERIMENTS = [
         "table": "Table 1 - DMD (Ours)*"
     },
     {
-        "name": "mosi_unaligned_bert",
-        "dataset": "mosi",
-        "aligned": False,
-        "use_bert": True,
-        "expected_acc7": None,  # Not reported in paper Table 1
-        "table": "Table 1 - Unaligned BERT"
-    },
-    {
         "name": "mosei_aligned_bert",
         "dataset": "mosei",
         "aligned": True,
         "use_bert": True,
         "expected_acc7": 54.5,
         "table": "Table 2 - DMD (Ours)*"
-    },
-    {
-        "name": "mosei_unaligned_bert",
-        "dataset": "mosei",
-        "aligned": False,
-        "use_bert": True,
-        "expected_acc7": None,  # Not reported in paper Table 2
-        "table": "Table 2 - Unaligned BERT"
     }
 ]
 
@@ -181,7 +167,7 @@ def save_config(config, exp_name, output_dir):
 
 
 def generate_all_configs(output_dir="experiments/configs"):
-    """Generate all 4 BERT experiment configurations"""
+    """Generate 2 BERT aligned experiment configurations"""
     # Get the DMD root directory
     script_dir = Path(__file__).parent
     dmd_root = script_dir.parent
@@ -189,10 +175,10 @@ def generate_all_configs(output_dir="experiments/configs"):
     output_dir.mkdir(parents=True, exist_ok=True)
     
     print("=" * 70)
-    print("DMD Experiment Configuration Generator (BERT Only)")
+    print("DMD Experiment Configuration Generator (BERT Aligned Only)")
     print("=" * 70)
     print(f"\nNOTE: Data files only contain BERT features (768-dim)")
-    print(f"      GloVe experiments cannot be reproduced with provided data\n")
+    print(f"      Only aligned experiments from paper tables are reproduced\n")
     print(f"Generating configurations for {len(EXPERIMENTS)} experiments...")
     print(f"Output directory: {output_dir}\n")
     

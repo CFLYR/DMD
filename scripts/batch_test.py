@@ -16,16 +16,8 @@ sys.path.insert(0, str(dmd_root))
 
 from run import DMD_run
 
-# Experiment configurations with expected results from paper
+# Experiment configurations (2 BERT aligned only - exactly matching paper Table 1 & 2)
 EXPERIMENTS = [
-    {
-        "name": "mosi_aligned_glove",
-        "dataset": "mosi",
-        "config_file": "experiments/configs/mosi_aligned_glove.json",
-        "model_dir": "experiments/models/mosi_aligned_glove",
-        "expected": {"ACC7": 41.4, "ACC2": 84.5, "F1": 84.4},
-        "paper_ref": "Table 1 - DMD (Ours), Aligned"
-    },
     {
         "name": "mosi_aligned_bert",
         "dataset": "mosi",
@@ -35,36 +27,12 @@ EXPERIMENTS = [
         "paper_ref": "Table 1 - DMD (Ours)*, Aligned"
     },
     {
-        "name": "mosi_unaligned_glove",
-        "dataset": "mosi",
-        "config_file": "experiments/configs/mosi_unaligned_glove.json",
-        "model_dir": "experiments/models/mosi_unaligned_glove",
-        "expected": {"ACC7": 41.9, "ACC2": 83.5, "F1": 83.5},
-        "paper_ref": "Table 1 - DMD (Ours), Unaligned"
-    },
-    {
-        "name": "mosei_aligned_glove",
-        "dataset": "mosei",
-        "config_file": "experiments/configs/mosei_aligned_glove.json",
-        "model_dir": "experiments/models/mosei_aligned_glove",
-        "expected": {"ACC7": 53.7, "ACC2": 85.0, "F1": 84.9},
-        "paper_ref": "Table 2 - DMD (Ours), Aligned"
-    },
-    {
         "name": "mosei_aligned_bert",
         "dataset": "mosei",
         "config_file": "experiments/configs/mosei_aligned_bert.json",
         "model_dir": "experiments/models/mosei_aligned_bert",
         "expected": {"ACC7": 54.5, "ACC2": 86.6, "F1": 86.6},
         "paper_ref": "Table 2 - DMD (Ours)*, Aligned"
-    },
-    {
-        "name": "mosei_unaligned_glove",
-        "dataset": "mosei",
-        "config_file": "experiments/configs/mosei_unaligned_glove.json",
-        "model_dir": "experiments/models/mosei_unaligned_glove",
-        "expected": {"ACC7": 54.6, "ACC2": 84.8, "F1": 84.7},
-        "paper_ref": "Table 2 - DMD (Ours), Unaligned"
     },
 ]
 
@@ -187,7 +155,7 @@ def batch_test():
                 "Paper Reference": item["paper_ref"],
             }
             
-            # Add metrics with comparison
+            # Add metrics with comparison to paper
             for metric in ["ACC7", "ACC2", "F1"]:
                 # Try different possible key formats
                 result_value = None

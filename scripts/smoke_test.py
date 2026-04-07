@@ -18,14 +18,10 @@ sys.path.insert(0, str(dmd_root))
 from config import get_config_regression
 
 
-# Experiment configurations (same as batch_train.py)
+# Experiment configurations (2 BERT aligned only - matching paper Table 1 & 2)
 EXPERIMENTS = [
-    {"name": "mosi_aligned_glove", "dataset": "mosi", "config_file": "experiments/configs/mosi_aligned_glove.json"},
     {"name": "mosi_aligned_bert", "dataset": "mosi", "config_file": "experiments/configs/mosi_aligned_bert.json"},
-    {"name": "mosi_unaligned_glove", "dataset": "mosi", "config_file": "experiments/configs/mosi_unaligned_glove.json"},
-    {"name": "mosei_aligned_glove", "dataset": "mosei", "config_file": "experiments/configs/mosei_aligned_glove.json"},
     {"name": "mosei_aligned_bert", "dataset": "mosei", "config_file": "experiments/configs/mosei_aligned_bert.json"},
-    {"name": "mosei_unaligned_glove", "dataset": "mosei", "config_file": "experiments/configs/mosei_unaligned_glove.json"},
 ]
 
 

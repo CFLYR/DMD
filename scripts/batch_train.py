@@ -17,14 +17,8 @@ sys.path.insert(0, str(dmd_root))
 
 from run import DMD_run
 
-# Experiment configurations
+# Experiment configurations (2 BERT aligned only - matching paper Table 1 & 2)
 EXPERIMENTS = [
-    {
-        "name": "mosi_aligned_glove",
-        "dataset": "mosi",
-        "config_file": "experiments/configs/mosi_aligned_glove.json",
-        "expected_acc7": 41.4,
-    },
     {
         "name": "mosi_aligned_bert",
         "dataset": "mosi",
@@ -32,28 +26,10 @@ EXPERIMENTS = [
         "expected_acc7": 45.6,
     },
     {
-        "name": "mosi_unaligned_glove",
-        "dataset": "mosi",
-        "config_file": "experiments/configs/mosi_unaligned_glove.json",
-        "expected_acc7": 41.9,
-    },
-    {
-        "name": "mosei_aligned_glove",
-        "dataset": "mosei",
-        "config_file": "experiments/configs/mosei_aligned_glove.json",
-        "expected_acc7": 53.7,
-    },
-    {
         "name": "mosei_aligned_bert",
         "dataset": "mosei",
         "config_file": "experiments/configs/mosei_aligned_bert.json",
         "expected_acc7": 54.5,
-    },
-    {
-        "name": "mosei_unaligned_glove",
-        "dataset": "mosei",
-        "config_file": "experiments/configs/mosei_unaligned_glove.json",
-        "expected_acc7": 54.6,
     },
 ]
 

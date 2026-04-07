@@ -214,7 +214,7 @@ class DMD():
             if isBetter:
                 best_valid, best_epoch = cur_valid, epochs
                 # save model
-                model_save_path = './pt/dmd.pth'
+                model_save_path = self.args.get('model_save_path', './pt/dmd.pth')
                 torch.save(model[0].state_dict(), model_save_path)
 
             if return_epoch_results:

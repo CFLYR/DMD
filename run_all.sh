@@ -13,7 +13,8 @@ NC='\033[0m' # No Color
 
 # Script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-DMD_ROOT="$(dirname "$SCRIPT_DIR")"
+# DMD_ROOT should be the directory containing this script
+DMD_ROOT="$SCRIPT_DIR"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}DMD Experiment Runner${NC}"

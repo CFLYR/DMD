@@ -43,7 +43,7 @@
       "unaligned": {
         "featurePath": "MOSEI/Processed/unaligned_50.pkl",
         "feature_dims": [
-          300,
+          768,
           74,
           35
         ],
@@ -59,7 +59,7 @@
       "need_data_aligned": false,
       "need_model_aligned": true,
       "early_stop": 10,
-      "use_bert": false,
+      "use_bert": true,
       "use_finetune": true,
       "attn_mask": true,
       "update_epochs": 10

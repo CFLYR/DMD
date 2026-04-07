@@ -1,6 +1,10 @@
 """
 Configuration Generator for DMD Experiments
-Generates 6 experiment configurations for reproducing Table 1 & 2 from the paper
+Generates 4 BERT experiment configurations for reproducing Table 1 & 2 from the paper
+
+NOTE: Data files only contain BERT (768-dim) features, not GloVe (300-dim).
+The 'text' key in .pkl files stores BERT features, despite the naming.
+Only BERT experiments (rows with * in paper tables) can be reproduced.
 """
 import json
 import os
@@ -106,16 +110,10 @@ BASE_CONFIG = {
     }
 }
 
-# 6 experiment configurations for reproducing paper results
+# 4 BERT experiment configurations for reproducing Table 1 & 2 (rows with *)
+# NOTE: Data files only contain BERT features (768-dim), no GloVe (300-dim)
+# The 'text' key in .pkl files stores 768-dim BERT, not 300-dim GloVe
 EXPERIMENTS = [
-    {
-        "name": "mosi_aligned_glove",
-        "dataset": "mosi",
-        "aligned": True,
-        "use_bert": False,
-        "expected_acc7": 41.4,
-        "table": "Table 1 - DMD (Ours)"
-    },
     {
         "name": "mosi_aligned_bert",
         "dataset": "mosi",
@@ -125,20 +123,12 @@ EXPERIMENTS = [
         "table": "Table 1 - DMD (Ours)*"
     },
     {
-        "name": "mosi_unaligned_glove",
+        "name": "mosi_unaligned_bert",
         "dataset": "mosi",
         "aligned": False,
-        "use_bert": False,
-        "expected_acc7": 41.9,
-        "table": "Table 1 - DMD (Ours)"
-    },
-    {
-        "name": "mosei_aligned_glove",
-        "dataset": "mosei",
-        "aligned": True,
-        "use_bert": False,
-        "expected_acc7": 53.7,
-        "table": "Table 2 - DMD (Ours)"
+        "use_bert": True,
+        "expected_acc7": None,  # Not reported in paper Table 1
+        "table": "Table 1 - Unaligned BERT"
     },
     {
         "name": "mosei_aligned_bert",
@@ -149,12 +139,12 @@ EXPERIMENTS = [
         "table": "Table 2 - DMD (Ours)*"
     },
     {
-        "name": "mosei_unaligned_glove",
+        "name": "mosei_unaligned_bert",
         "dataset": "mosei",
         "aligned": False,
-        "use_bert": False,
-        "expected_acc7": 54.6,
-        "table": "Table 2 - DMD (Ours)"
+        "use_bert": True,
+        "expected_acc7": None,  # Not reported in paper Table 2
+        "table": "Table 2 - Unaligned BERT"
     }
 ]
 
@@ -191,7 +181,7 @@ def save_config(config, exp_name, output_dir):
 
 
 def generate_all_configs(output_dir="experiments/configs"):
-    """Generate all 6 experiment configurations"""
+    """Generate all 4 BERT experiment configurations"""
     # Get the DMD root directory
     script_dir = Path(__file__).parent
     dmd_root = script_dir.parent
@@ -199,9 +189,11 @@ def generate_all_configs(output_dir="experiments/configs"):
     output_dir.mkdir(parents=True, exist_ok=True)
     
     print("=" * 70)
-    print("DMD Experiment Configuration Generator")
+    print("DMD Experiment Configuration Generator (BERT Only)")
     print("=" * 70)
-    print(f"\nGenerating configurations for {len(EXPERIMENTS)} experiments...")
+    print(f"\nNOTE: Data files only contain BERT features (768-dim)")
+    print(f"      GloVe experiments cannot be reproduced with provided data\n")
+    print(f"Generating configurations for {len(EXPERIMENTS)} experiments...")
     print(f"Output directory: {output_dir}\n")
     
     generated_files = []
@@ -224,7 +216,8 @@ def generate_all_configs(output_dir="experiments/configs"):
     print(f"{'Experiment':<25} {'Dataset':<8} {'Aligned':<10} {'Feature':<15} {'Expected ACC7'}")
     print("-" * 70)
     for item in generated_files:
-        print(f"{item['name']:<25} {item['dataset']:<8} {item['aligned']:<10} {item['feature']:<15} {item['expected_acc7']:.1f}%")
+        exp_acc = f"{item['expected_acc7']:.1f}%" if item['expected_acc7'] else "N/A"
+        print(f"{item['name']:<25} {item['dataset']:<8} {item['aligned']:<10} {item['feature']:<15} {exp_acc}")
     
     print("\n" + "=" * 70)
     print(f"✓ Successfully generated {len(generated_files)} configuration files")

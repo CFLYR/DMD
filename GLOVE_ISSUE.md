@@ -1,145 +1,88 @@
-# 关键问题分析：GloVe 特征不可用
+# ✅ 问题已解决：数据文件不含 GloVe 特征
 
-## 🔴 问题根源
+## 🔍 数据文件检查结果
 
-### 错误信息
+已通过 `scripts/check_data.py` 检查数据文件，结果：
+
+### 数据文件内容
 ```
-Given groups=1, weight of size [50, 300, 5], 
-expected input[16, 768, 50] to have 300 channels, but got 768 channels instead
+text: (1284, 50, 768)        ← 名为 'text' 但存的是768维BERT特征！
+text_bert: (1284, 3, 50)     ← 另一种BERT格式（可能是token级别）
 ```
 
-**翻译：**
-- 模型期待 300 维输入（GloVe）
-- 实际得到 768 维输入（BERT）
-- 配置说 use_bert=False，但数据加载器仍加载了 BERT 特征
+### 🔴 **根本原因**
+**数据文件的 'text' key 存储的是 BERT 特征，不是 GloVe！**
 
-## 🔍 源码分析（已完成）
+- 所有 .pkl 文件的 'text' 字段都是 768维 BERT 特征
+- 没有 300维 GloVe 特征
+- 原始 config.json 全部使用 768维 + use_bert=true，证实了这点
 
-### 1. 配置加载逻辑（config.py）
+## 📊 影响
+
+### 可复现的实验（4个）
+✅ 只能复现 BERT 实验（论文 Table 1 & 2 中带 * 的行）：
+1. mosi_aligned_bert - Expected ACC7: 45.6%
+2. mosi_unaligned_bert
+3. mosei_aligned_bert - Expected ACC7: 54.5%
+4. mosei_unaligned_bert
+
+### 不可复现的实验（原计划的2个）
+❌ GloVe 实验无法复现（Table 1 & 2 中不带 * 的行）：
+- mosi_aligned_glove - 论文报告 ACC7: 41.4%
+- mosei_aligned_glove - 论文报告 ACC7: 53.7%
+
+**原因：** 公开数据集不包含 GloVe 预处理特征。论文作者可能使用了未公开的 GloVe 数据处理流程。
+
+## ✅ 解决方案
+
+### 已修改的文件
+
+1. **scripts/config_generator.py**
+   - 移除了所有 GloVe 实验配置
+   - 只生成 4 个 BERT 实验配置
+   - 添加了说明注释
+
+2. **后续需要更新**
+   - scripts/batch_train.py（自动适应新的实验数量）
+   - scripts/smoke_test.py（自动适应新的实验数量）
+   - experiments/README.md（更新文档说明）
+
+## 🚀 下一步
+
+运行更新后的配置生成器：
+```bash
+cd DMD
+python3 scripts/config_generator.py
+```
+
+应该生成 4 个配置文件，全部使用 BERT (768-dim)。
+
+## 📝 技术细节
+
+### 为什么会产生维度错误
+
+**当 use_bert=False 时：**
 ```python
-# config.py 第 27 行
-dataset_args = dataset_args['aligned'] if (model_common_args['need_data_aligned'] 
-                and 'aligned' in dataset_args) else dataset_args['unaligned']
+# data_loader.py 期望加载 GloVe
+self.text = data[self.mode]['text']  # 期望 (N, 50, 300)
+# 但实际得到 (N, 50, 768) - BERT！
 
-# 第 32-34 行 - 合并顺序
-config.update(dataset_args)        # 包含 feature_dims
-config.update(model_common_args)   # 包含 use_bert
-config.update(model_dataset_args)  # 模型特定参数
+# model 初始化为 300 维卷积
+Conv1d(300, ..., kernel_size=5)
+
+# 输入是 768 维
+# 错误：expected 300 channels, got 768
 ```
 
-✅ 配置加载逻辑正确，use_bert=False 确实被设置
+### 数据文件的名称误导性
 
-### 2. 数据加载逻辑（data_loader.py）
 ```python
-# data_loader.py 第 22-25 行
-if 'use_bert' in self.args and self.args['use_bert']:
-    self.text = data[self.mode]['text_bert'].astype(np.float32)  # BERT
-else:
-    self.text = data[self.mode]['text'].astype(np.float32)  # GloVe
-```
-
-✅ 数据加载逻辑正确，use_bert=False 时应该加载 'text'
-
-### 3. 原始配置文件（config/config.json）
-```json
-{
-  "datasetCommonParams": {
-    "mosi": {
-      "aligned": {
-        "feature_dims": [768, 5, 20]  // ← 问题在这里！全是 768
-      },
-      "unaligned": {
-        "feature_dims": [768, 5, 20]  // ← 都是 768
-      }
-    }
-  },
-  "dmd": {
-    "commonParams": {
-      "use_bert": true  // ← 原始默认是 true
-    }
-  }
+data = {
+    'text': np.array(..., shape=(N, 50, 768)),      # 误导：名为text但是BERT
+    'text_bert': np.array(..., shape=(N, 3, 50)),   # 另一种BERT格式
+    'vision': ...,
+    'audio': ...
 }
 ```
 
-❌ **原始配置全是 768，说明原仓库默认只支持 BERT**
-
-## 💡 结论
-
-### 数据文件可能的情况
-
-**情况 1：数据文件只包含 BERT 特征**
-```python
-data['train'].keys() = ['text_bert', 'vision', 'audio', ...]
-# 没有 'text' (GloVe)
-```
-
-如果是这种情况：
-- ❌ **无法运行 GloVe 实验**
-- ✅ 只能运行 BERT 实验（2个，不是6个）
-- 论文报告的 GloVe 结果可能使用了不同的数据预处理
-
-**情况 2：数据文件同时包含两种特征**
-```python
-data['train'].keys() = ['text', 'text_bert', 'vision', 'audio', ...]
-# text.shape = (N, 50, 300)  - GloVe
-# text_bert.shape = (N, 50, 768)  - BERT
-```
-
-如果是这种情况：
-- ✅ 可以运行所有 6 个实验
-- 当前错误是因为原始 config.json 的 feature_dims 设置错误
-
-## 🚀 下一步行动
-
-### 立即执行：检查数据文件
-
-**在服务器上运行：**
-```bash
-cd /path/to/DMD
-python3 scripts/check_data.py
-```
-
-这会检查数据文件中是否同时包含 'text' 和 'text_bert'。
-
-### 根据检查结果的处理方案
-
-#### 方案 A：如果数据只有 BERT（text_bert）
-
-**修改实验计划：**
-- 只运行 2 个 BERT 实验，不运行 GloVe
-  - mosi_aligned_bert
-  - mosei_aligned_bert
-- 需要修改 scripts/ 中的实验列表
-- 更新文档说明只能复现 BERT 结果
-
-#### 方案 B：如果数据同时有 GloVe 和 BERT
-
-**修改原始配置：**
-```bash
-# 需要根据 use_bert 动态设置 feature_dims
-# 但这需要修改 config.py 或在 run.py 中动态调整
-```
-
-**临时解决方案：**
-修改 config_generator.py，不在 datasetCommonParams 中设置 feature_dims，
-让 data_loader.py 自动根据实际数据形状设置（第 39 行的逻辑）。
-
-## 📋 需要用户确认
-
-请在服务器上运行：
-```bash
-python3 scripts/check_data.py
-```
-
-然后告诉我结果，我会根据实际情况提供精确的修复方案。
-
-## 🎯 可能的最终结论
-
-根据原始 config.json 全是 768 和 use_bert=true 的事实，
-**原仓库很可能只提供了 BERT 预处理的数据**。
-
-论文中的 GloVe 结果可能：
-1. 使用了未公开的 GloVe 预处理数据
-2. 或者需要自己从原始数据重新提取 GloVe 特征
-
-如果确实如此，我们只能复现论文 Table 1 和 Table 2 中带 * 的 BERT 实验。
+'text' 这个名字让人以为是 GloVe，但实际存储的是 BERT 特征。

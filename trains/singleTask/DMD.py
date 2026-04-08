@@ -40,6 +40,11 @@ class DMD():
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, verbose=True, patience=self.args.patience)
 
         epochs, best_epoch = 0, 0
+        # Get max_epochs from args (supports ablation study override)
+        max_epochs = self.args.get('epochs', 30)
+        max_epochs = int(max_epochs)
+        print(f"\nDEBUG_DMD.py: do_train() initialized with max_epochs = {max_epochs}")
+        
         if return_epoch_results:
             epoch_results = {
                 'train': [],
@@ -58,7 +63,7 @@ class DMD():
         net.append(net_distill_hetero)
         model = net
 
-        while True:
+        while epochs < max_epochs:
             epochs += 1
             y_pred, y_true = [], []
             for mod in model:
@@ -223,8 +228,12 @@ class DMD():
                 epoch_results['valid'].append(val_results)
                 test_results = self.do_test(model, dataloader['test'], mode="TEST")
                 epoch_results['test'].append(test_results)
-            # early stop
+            # early stop OR max epochs reached
             if epochs - best_epoch >= self.args.early_stop:
+                print(f"DEBUG_DMD.py: Early stopping at epoch {epochs}")
+                return epoch_results if return_epoch_results else None
+            if epochs >= max_epochs:
+                print(f"DEBUG_DMD.py: Max epochs reached ({max_epochs}), stopping")
                 return epoch_results if return_epoch_results else None
 
     def do_test(self, model, dataloader, mode="VAL", return_sample_results=False):

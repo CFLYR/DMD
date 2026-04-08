@@ -87,7 +87,18 @@ def DMD_run(
     # Override epochs if provided (for smoke testing or custom epoch counts)
     if epochs is not None:
         args['epochs'] = epochs
-        logger.info(f"Overriding epoch count to: {epochs}")
+        
+        print("\n" + "=" * 80)
+        print(f"DEBUG: EPOCH OVERRIDE APPLIED IN DMD_run()")
+        print(f"  Requested epochs: {epochs}")
+        print(f"  args['epochs']: {args.get('epochs', 'NOT SET')}")
+        print(f"  ALL EPOCH-RELATED KEYS IN ARGS:")
+        for key in sorted(args.keys()):
+            if 'epoch' in key.lower():
+                print(f"    {key}: {args[key]}")
+        print("=" * 80 + "\n")
+        
+        logger.info(f"EPOCH OVERRIDE: Setting epochs to {epochs}")
 
     res_save_dir = Path(res_save_dir) / "normal"
     res_save_dir.mkdir(parents=True, exist_ok=True)
@@ -175,9 +186,23 @@ def _run(args, num_workers=4, is_tune=False, from_sena=False):
         model = getattr(dmd, 'DMD')(args)
         model = model.cuda()
 
+    # DEBUG: Print all epoch settings before creating trainer
+    print("\n" + "=" * 80)
+    print("DEBUG: FINAL ARGS BEFORE TRAINER INITIALIZATION")
+    print(f"  args.get('epochs'): {args.get('epochs', 'NOT SET')}")
+    print(f"  args.epochs (if exists): {args.epochs if hasattr(args, 'epochs') else 'ATTR NOT FOUND'}")
+    print("=" * 80 + "\n")
+    
     trainer = ATIO().getTrain(args)
-
-
+    
+    # DEBUG: Print trainer's view of epochs
+    if hasattr(trainer, 'args'):
+        print("\n" + "=" * 80)
+        print("DEBUG: TRAINER ARGS AFTER INITIALIZATION")
+        print(f"  trainer.args.get('epochs'): {trainer.args.get('epochs', 'NOT SET')}")
+        print(f"  trainer.args.epochs (if exists): {trainer.args.epochs if hasattr(trainer.args, 'epochs') else 'ATTR NOT FOUND'}")
+        print("=" * 80 + "\n")
+    
     if args.mode == 'test':
         model.load_state_dict(torch.load(args['model_save_path']))
         results = trainer.do_test(model, dataloader['test'], mode="TEST")

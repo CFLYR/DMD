@@ -86,6 +86,11 @@ def train_variant(variant_name, dataset_name, config_dir="experiments/ablation_s
         # Override epochs if provided
         if epochs:
             dmd_args['epochs'] = epochs
+            print(f"\n{'='*80}")
+            print(f"DEBUG: Epochs Override Requested")
+            print(f"  epochs value: {epochs}")
+            print(f"  dmd_args['epochs']: {dmd_args.get('epochs', 'NOT SET')}")
+            print(f"{'='*80}\n")
         
         DMD_run(**dmd_args)
         

@@ -56,7 +56,18 @@ class DMD():
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, verbose=True, patience=self.args.patience)
 
         epochs, best_epoch = 0, 0
-        max_epochs = getattr(self.args, 'epochs', 30)  # Default 30 epochs (can be overridden)
+        # Read max_epochs from args (can be dict-style or attribute-style due to edict)
+        max_epochs = self.args.get('epochs', self.args.epochs if hasattr(self.args, 'epochs') else 30)
+        max_epochs = int(max_epochs)  # Ensure it's an integer
+        
+        logger.info(f"DEBUG: Trainer initialized with max_epochs = {max_epochs}")
+        print(f"\n{'='*80}")
+        print(f"DEBUG: TRAINER do_train() INITIALIZED")
+        print(f"  max_epochs resolved to: {max_epochs}")
+        print(f"  self.args.get('epochs'): {self.args.get('epochs', 'NOT SET')}")
+        print(f"  self.args.epochs (if exists): {self.args.epochs if hasattr(self.args, 'epochs') else 'ATTR NOT FOUND'}")
+        print(f"{'='*80}\n")
+        
         if return_epoch_results:
             epoch_results = {
                 'train': [],
@@ -79,6 +90,12 @@ class DMD():
 
         while epochs < max_epochs:
             epochs += 1
+            
+            # HARD SAFEGUARD: Explicitly check epoch limit
+            if epochs > max_epochs:
+                logger.info(f"DEBUG: HARD STOP - epoch {epochs} exceeds max_epochs {max_epochs}")
+                print(f"\nDEBUG: HARD STOP AT EPOCH {epochs} (max_epochs={max_epochs})")
+                break
             y_pred, y_true = [], []
             for mod in model:
                 if mod is not None:
@@ -224,6 +241,10 @@ class DMD():
             train_loss = train_loss / len(dataloader['train'])
             pred, true = torch.cat(y_pred), torch.cat(y_true)
             train_results = self.metrics(pred, true)
+            
+            # DEBUG: Log epoch progression with max_epochs check
+            print(f"DEBUG: Epoch {epochs}/{max_epochs} (early_stop threshold: {self.args.early_stop}, best_epoch: {best_epoch})")
+            
             logger.info(
                 f">> Epoch: {epochs} "
                 f"TRAIN-({self.args.model_name}) [{epochs - best_epoch}/{epochs}/{self.args.cur_seed}] "
@@ -255,9 +276,11 @@ class DMD():
             # Early stop OR max epochs reached
             if epochs - best_epoch >= self.args.early_stop:
                 logger.info(f">> Early stopping at epoch {epochs}. Best epoch: {best_epoch}")
+                print(f"DEBUG: EARLY STOP - No improvement for {self.args.early_stop} epochs")
                 break
             if epochs >= max_epochs:
                 logger.info(f">> Reached maximum epochs ({max_epochs}). Best epoch: {best_epoch} with {self.args.KeyEval}={best_valid:.4f}")
+                print(f"DEBUG: MAX EPOCHS REACHED - Stopping at epoch {epochs}")
                 break
         
         return epoch_results if return_epoch_results else None

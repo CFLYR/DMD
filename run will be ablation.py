@@ -39,8 +39,15 @@ ABLATION_VARIANTS = [
 DATASETS = ['mosi', 'mosei']
 
 
-def train_single_variant(variant, dataset, base_dir=None):
-    """Train a single variant"""
+def train_single_variant(variant, dataset, base_dir=None, epochs=None):
+    """Train a single variant
+    
+    Args:
+        variant: Variant name
+        dataset: Dataset name
+        base_dir: Base directory
+        epochs: Override epoch count (for smoke testing)
+    """
     if base_dir is None:
         base_dir = Path(__file__).parent
     
@@ -49,6 +56,8 @@ def train_single_variant(variant, dataset, base_dir=None):
     
     print("\n" + "=" * 80)
     print(f"Training: {variant} on {dataset.upper()}")
+    if epochs:
+        print(f"Override Epochs: {epochs}")
     print("=" * 80)
     
     cmd = [
@@ -57,6 +66,9 @@ def train_single_variant(variant, dataset, base_dir=None):
         "--variant", variant,
         "--dataset", dataset
     ]
+    
+    if epochs:
+        cmd.extend(["--epochs", str(epochs)])
     
     result = subprocess.run(cmd, capture_output=False)
     
@@ -68,8 +80,13 @@ def train_single_variant(variant, dataset, base_dir=None):
         return False
 
 
-def train_all_variants(base_dir=None):
-    """Train all 12 variants (6 variants × 2 datasets)"""
+def train_all_variants(base_dir=None, epochs=None):
+    """Train all 12 variants (6 variants × 2 datasets)
+    
+    Args:
+        base_dir: Base directory
+        epochs: Override epoch count
+    """
     if base_dir is None:
         base_dir = Path(__file__).parent
     
@@ -77,6 +94,8 @@ def train_all_variants(base_dir=None):
     print("DMD Ablation Study - Training All Variants")
     print("=" * 80)
     print(f"Total experiments: {len(ABLATION_VARIANTS) * len(DATASETS)}")
+    if epochs:
+        print(f"Override Epochs: {epochs}")
     print("=" * 80)
     
     success_count = 0
@@ -84,7 +103,7 @@ def train_all_variants(base_dir=None):
     
     for variant in ABLATION_VARIANTS:
         for dataset in DATASETS:
-            success = train_single_variant(variant, dataset, base_dir)
+            success = train_single_variant(variant, dataset, base_dir, epochs)
             if success:
                 success_count += 1
             else:
@@ -128,11 +147,17 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Train single variant
+  # Train single variant (30 epochs default)
   python "run will be ablation.py" --mode train --variant variant1_full --dataset mosi
+  
+  # Smoke test: Train single variant for 1 epoch
+  python "run will be ablation.py" --mode train --variant variant1_full --dataset mosi --epochs 1
   
   # Train all 12 variants
   python "run will be ablation.py" --mode train --all
+  
+  # Quick smoke test: Train all variants for 1 epoch
+  python "run will be ablation.py" --mode train --all --epochs 1
   
   # Test all variants
   python "run will be ablation.py" --mode test
@@ -150,6 +175,8 @@ Examples:
                        help='Dataset to use (required if not --all)')
     parser.add_argument('--all', action='store_true',
                        help='Train/test all variants')
+    parser.add_argument('--epochs', type=int, default=None,
+                       help='Override epoch count (default: 30). Use --epochs 1 for smoke test')
     
     args = parser.parse_args()
     
@@ -159,9 +186,9 @@ Examples:
             parser.error("--variant and --dataset are required when not using --all")
         
         if args.all:
-            train_all_variants()
+            train_all_variants(epochs=args.epochs)
         else:
-            train_single_variant(args.variant, args.dataset)
+            train_single_variant(args.variant, args.dataset, epochs=args.epochs)
     
     elif args.mode == 'test':
         test_all_variants()

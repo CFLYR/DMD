@@ -18,7 +18,8 @@ from run import DMD_run
 
 
 def train_variant(variant_name, dataset_name, config_dir="experiments/ablation_study/configs",
-                  model_dir="experiments/ablation_study/models", log_dir="experiments/ablation_study/logs"):
+                  model_dir="experiments/ablation_study/models", log_dir="experiments/ablation_study/logs",
+                  epochs=None):
     """
     Train a single ablation variant
     
@@ -28,6 +29,7 @@ def train_variant(variant_name, dataset_name, config_dir="experiments/ablation_s
         config_dir: Directory containing config files
         model_dir: Directory to save models
         log_dir: Directory to save logs
+        epochs: Override epoch count (default: 30 from config)
     """
     # Construct paths
     config_file = dmd_root / config_dir / f"{variant_name}_{dataset_name}.json"
@@ -48,6 +50,8 @@ def train_variant(variant_name, dataset_name, config_dir="experiments/ablation_s
     print(f"Config: {config_file}")
     print(f"Model Output: {model_save_dir}")
     print(f"Log Output: {log_save_dir}")
+    if epochs:
+        print(f"Override Epochs: {epochs}")
     print("=" * 80)
     
     # Load config to display settings
@@ -66,17 +70,24 @@ def train_variant(variant_name, dataset_name, config_dir="experiments/ablation_s
     
     # Run training
     try:
-        DMD_run(
-            model_name='dmd',
-            dataset_name=dataset_name,
-            config_file=str(config_file),
-            seeds=[1111],  # Fixed seed for ablation study
-            model_save_dir=str(model_save_dir),
-            res_save_dir=str(model_save_dir / "results"),
-            log_dir=str(log_save_dir),
-            mode='train',
-            is_distill=True
-        )
+        # Build DMD_run arguments
+        dmd_args = {
+            'model_name': 'dmd',
+            'dataset_name': dataset_name,
+            'config_file': str(config_file),
+            'seeds': [1111],  # Fixed seed for ablation study
+            'model_save_dir': str(model_save_dir),
+            'res_save_dir': str(model_save_dir / "results"),
+            'log_dir': str(log_save_dir),
+            'mode': 'train',
+            'is_distill': True
+        }
+        
+        # Override epochs if provided
+        if epochs:
+            dmd_args['epochs'] = epochs
+        
+        DMD_run(**dmd_args)
         
         print("\n" + "=" * 80)
         print(f"✓ Training completed successfully!")
@@ -108,6 +119,8 @@ def main():
                        help='Model output directory')
     parser.add_argument('--log-dir', type=str, default='experiments/ablation_study/logs',
                        help='Log output directory')
+    parser.add_argument('--epochs', type=int, default=None,
+                       help='Override epoch count (default: 30 from config). Use 1 for smoke test.')
     
     args = parser.parse_args()
     
@@ -116,7 +129,8 @@ def main():
         dataset_name=args.dataset,
         config_dir=args.config_dir,
         model_dir=args.model_dir,
-        log_dir=args.log_dir
+        log_dir=args.log_dir,
+        epochs=args.epochs
     )
 
 

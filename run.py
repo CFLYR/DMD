@@ -47,7 +47,7 @@ def DMD_run(
     model_name, dataset_name, config=None, config_file="", seeds=[], is_tune=False,
     tune_times=500, feature_T="", feature_A="", feature_V="",
     model_save_dir="", res_save_dir="", log_dir="",
-    gpu_ids=[0], num_workers=4, verbose_level=1, mode = '', is_distill = False
+    gpu_ids=[0], num_workers=4, verbose_level=1, mode = '', is_distill = False, epochs=None
 ):
     # Initialization
     model_name = model_name.lower()
@@ -83,7 +83,11 @@ def DMD_run(
     args['feature_V'] = feature_V
     if config:
         args.update(config)
-
+    
+    # Override epochs if provided (for smoke testing or custom epoch counts)
+    if epochs is not None:
+        args['epochs'] = epochs
+        logger.info(f"Overriding epoch count to: {epochs}")
 
     res_save_dir = Path(res_save_dir) / "normal"
     res_save_dir.mkdir(parents=True, exist_ok=True)

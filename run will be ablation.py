@@ -1,22 +1,191 @@
+"""
+Main Entry Point for DMD Ablation Study
+Wrapper around existing run.py to facilitate ablation experiments
+
+Usage:
+  # Train single variant
+  python "run will be ablation.py" --mode train --variant variant1_full --dataset mosi
+  
+  # Train all variants
+  python "run will be ablation.py" --mode train --all
+  
+  # Test all variants and generate Table 3
+  python "run will be ablation.py" --mode test
+"""
 import gc
 import logging
 import os
-import time
-from pathlib import Path
-import numpy as np
-import pandas as pd
-import torch
-from config import get_config_regression
-from data_loader import MMDataLoader
-from trains import ATIO
-from utils import assign_gpu, setup_seed
-from trains.singleTask.model import dmd
-from trains.singleTask.distillnets import get_distillation_kernel, get_distillation_kernel_homo
-from trains.singleTask.misc import softmax
 import sys
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:2"
-logger = logging.getLogger('MMSA')
+import argparse
+import subprocess
+from pathlib import Path
+
+# Add current directory to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+# Import original DMD_run
+from run import DMD_run
+
+# Ablation variant definitions
+ABLATION_VARIANTS = [
+    'variant1_full',
+    'variant2_no_hetero',
+    'variant3_no_ca',
+    'variant4_only_homo',
+    'variant5_only_fd',
+    'variant6_baseline'
+]
+
+DATASETS = ['mosi', 'mosei']
+
+
+def train_single_variant(variant, dataset, base_dir=None):
+    """Train a single variant"""
+    if base_dir is None:
+        base_dir = Path(__file__).parent
+    
+    # Use batch_train script
+    script_path = base_dir / "scripts" / "batch_train_will be ablation.py"
+    
+    print("\n" + "=" * 80)
+    print(f"Training: {variant} on {dataset.upper()}")
+    print("=" * 80)
+    
+    cmd = [
+        sys.executable,
+        str(script_path),
+        "--variant", variant,
+        "--dataset", dataset
+    ]
+    
+    result = subprocess.run(cmd, capture_output=False)
+    
+    if result.returncode == 0:
+        print(f"\n✓ {variant} on {dataset} completed successfully")
+        return True
+    else:
+        print(f"\n✗ {variant} on {dataset} failed with return code {result.returncode}")
+        return False
+
+
+def train_all_variants(base_dir=None):
+    """Train all 12 variants (6 variants × 2 datasets)"""
+    if base_dir is None:
+        base_dir = Path(__file__).parent
+    
+    print("\n" + "=" * 80)
+    print("DMD Ablation Study - Training All Variants")
+    print("=" * 80)
+    print(f"Total experiments: {len(ABLATION_VARIANTS) * len(DATASETS)}")
+    print("=" * 80)
+    
+    success_count = 0
+    failed = []
+    
+    for variant in ABLATION_VARIANTS:
+        for dataset in DATASETS:
+            success = train_single_variant(variant, dataset, base_dir)
+            if success:
+                success_count += 1
+            else:
+                failed.append(f"{variant}_{dataset}")
+    
+    # Summary
+    print("\n" + "=" * 80)
+    print("Training Summary")
+    print("=" * 80)
+    print(f"Successful: {success_count}/{len(ABLATION_VARIANTS) * len(DATASETS)}")
+    if failed:
+        print(f"Failed: {', '.join(failed)}")
+    print("=" * 80)
+
+
+def test_all_variants(base_dir=None):
+    """Test all variants and generate Table 3"""
+    if base_dir is None:
+        base_dir = Path(__file__).parent
+    
+    # Use batch_test script
+    script_path = base_dir / "scripts" / "batch_test will be ablation.py"
+    
+    print("\n" + "=" * 80)
+    print("Testing All Variants and Generating Table 3")
+    print("=" * 80)
+    
+    cmd = [sys.executable, str(script_path)]
+    result = subprocess.run(cmd, capture_output=False)
+    
+    if result.returncode == 0:
+        print("\n✓ Testing completed successfully")
+        print("✓ Check experiments/ablation_study/table3_results.csv for results")
+    else:
+        print(f"\n✗ Testing failed with return code {result.returncode}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='DMD Ablation Study Entry Point',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Train single variant
+  python "run will be ablation.py" --mode train --variant variant1_full --dataset mosi
+  
+  # Train all 12 variants
+  python "run will be ablation.py" --mode train --all
+  
+  # Test all variants
+  python "run will be ablation.py" --mode test
+        """
+    )
+    
+    parser.add_argument('--mode', type=str, required=True,
+                       choices=['train', 'test'],
+                       help='Mode: train or test')
+    parser.add_argument('--variant', type=str,
+                       choices=ABLATION_VARIANTS,
+                       help='Variant to train (required if not --all)')
+    parser.add_argument('--dataset', type=str,
+                       choices=DATASETS,
+                       help='Dataset to use (required if not --all)')
+    parser.add_argument('--all', action='store_true',
+                       help='Train/test all variants')
+    
+    args = parser.parse_args()
+    
+    # Validation
+    if args.mode == 'train':
+        if not args.all and (not args.variant or not args.dataset):
+            parser.error("--variant and --dataset are required when not using --all")
+        
+        if args.all:
+            train_all_variants()
+        else:
+            train_single_variant(args.variant, args.dataset)
+    
+    elif args.mode == 'test':
+        test_all_variants()
+
+
+if __name__ == "__main__":
+    # If run without arguments, show help
+    if len(sys.argv) == 1:
+        print("=" * 80)
+        print("DMD Ablation Study - Main Entry Point")
+        print("=" * 80)
+        print("\nQuick Start:")
+        print("  1. Generate configs:")
+        print('     python "scripts/config_generator will be ablation.py"')
+        print("\n  2. Train all variants:")
+        print('     python "run will be ablation.py" --mode train --all')
+        print("\n  3. Test and generate Table 3:")
+        print('     python "run will be ablation.py" --mode test')
+        print("\nFor more options, run with --help")
+        print("=" * 80)
+        sys.exit(0)
+    
+    main()
+
 
 def _set_logger(log_dir, model_name, dataset_name, verbose_level):
 

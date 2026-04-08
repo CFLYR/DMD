@@ -61,8 +61,8 @@ class DMD(nn.Module):
                 combined_dim = 2 * (self.d_l + self.d_a + self.d_v)
             else:
                 combined_dim = self.d_l + self.d_a + self.d_v
-        elif self.use_CA and not self.use_HeteroGD:  # Variant 2: No HeteroGD
-            combined_dim = 2 * (self.d_l + self.d_a + self.d_v) + self.d_l * 3
+        elif self.use_CA and not self.use_HeteroGD:  # Variant 2: No HeteroGD (no c_fusion)
+            combined_dim = 2 * (self.d_l + self.d_a + self.d_v)
         else:  # Variant 1: Full model
             combined_dim = 2 * (self.d_l + self.d_a + self.d_v) + self.d_l * 3
         
@@ -143,8 +143,8 @@ class DMD(nn.Module):
             self.out_layer_a_high = nn.Linear(combined_dim_high, output_dim)
 
         # 7. Ensemble Projection layers (conditional)
-        if self.use_CA and self.use_HeteroGD:
-            # weight for each modality
+        if self.use_CA:
+            # weight for each modality - needed for Variant 2 (No HeteroGD) as well
             self.weight_l = nn.Linear(2 * self.d_l, 2 * self.d_l)
             self.weight_v = nn.Linear(2 * self.d_v, 2 * self.d_v)
             self.weight_a = nn.Linear(2 * self.d_a, 2 * self.d_a)
@@ -205,10 +205,10 @@ class DMD(nn.Module):
         
         # VARIANT 6: Baseline - Direct concatenation (no FD, no GD, no CA)
         if not self.use_FD:
-            # Direct concatenation after conv1d projection
-            feat_l = proj_x_l.transpose(1, 2).contiguous().view(proj_x_l.size(0), -1)
-            feat_a = proj_x_a.transpose(1, 2).contiguous().view(proj_x_a.size(0), -1)
-            feat_v = proj_x_v.transpose(1, 2).contiguous().view(proj_x_v.size(0), -1)
+            # Use mean-pooled features to match combined_dim = d_l + d_a + d_v
+            feat_l = proj_x_l.mean(dim=2)
+            feat_a = proj_x_a.mean(dim=2)
+            feat_v = proj_x_v.mean(dim=2)
             
             # Concatenate and classify
             last_hs = torch.cat([feat_l, feat_a, feat_v], dim=1)
@@ -412,36 +412,24 @@ class DMD(nn.Module):
             # Already handled above (Variant 6)
             pass
         elif self.use_FD and not self.use_HomoGD:
-            # Variant 5: Only FD - concatenate decoupled features
-            s_l_flat = s_l.transpose(0, 1).contiguous().view(x_l.size(0), -1)
-            s_v_flat = s_v.transpose(0, 1).contiguous().view(x_v.size(0), -1)
-            s_a_flat = s_a.transpose(0, 1).contiguous().view(x_a.size(0), -1)
-            c_l_flat = c_l.transpose(0, 1).contiguous().view(x_l.size(0), -1)
-            c_v_flat = c_v.transpose(0, 1).contiguous().view(x_v.size(0), -1)
-            c_a_flat = c_a.transpose(0, 1).contiguous().view(x_a.size(0), -1)
-            
-            last_hs = torch.cat([s_l_flat, s_v_flat, s_a_flat, c_l_flat, c_v_flat, c_a_flat], dim=1)
+            # Variant 5: Only FD - concatenate POOLED decoupled features (not flattened)
+            # Use mean-pooled features to match combined_dim = 2 * (d_l + d_a + d_v)
+            last_hs = torch.cat([s_l_pooled, s_v_pooled, s_a_pooled, c_l_pooled, c_v_pooled, c_a_pooled], dim=1)
         elif self.use_HomoGD and not self.use_CA and not self.use_HeteroGD:
             # Variant 4: Only HomoGD - use homogeneous features
             last_hs = torch.cat([repr_l_low, repr_v_low, repr_a_low], dim=1)
         elif not self.use_CA and self.use_HeteroGD:
-            # Variant 3: No CA but with HeteroGD
-            s_l_flat = s_l.transpose(0, 1).contiguous().view(x_l.size(0), -1)
-            s_v_flat = s_v.transpose(0, 1).contiguous().view(x_v.size(0), -1)
-            s_a_flat = s_a.transpose(0, 1).contiguous().view(x_a.size(0), -1)
-            c_l_flat = c_l.transpose(0, 1).contiguous().view(x_l.size(0), -1)
-            c_v_flat = c_v.transpose(0, 1).contiguous().view(x_v.size(0), -1)
-            c_a_flat = c_a.transpose(0, 1).contiguous().view(x_a.size(0), -1)
-            
-            last_hs = torch.cat([s_l_flat, s_v_flat, s_a_flat, c_l_flat, c_v_flat, c_a_flat], dim=1)
+            # Variant 3: No CA but with HeteroGD - use POOLED features
+            # Use mean-pooled features to match combined_dim = d_l + d_a + d_v
+            last_hs = torch.cat([s_l_pooled, s_v_pooled, s_a_pooled, c_l_pooled, c_v_pooled, c_a_pooled], dim=1)
         elif self.use_CA and not self.use_HeteroGD:
-            # Variant 2: No HeteroGD - use CA outputs + HomoGD
+            # Variant 2: No HeteroGD - use CA outputs only (no c_fusion without HomoGD)
             last_h_l_weighted = torch.sigmoid(self.weight_l(last_h_l))
             last_h_v_weighted = torch.sigmoid(self.weight_v(last_h_v))
             last_h_a_weighted = torch.sigmoid(self.weight_a(last_h_a))
-            c_fusion_weighted = torch.sigmoid(self.weight_c(c_fusion))
             
-            last_hs = torch.cat([last_h_l_weighted, last_h_v_weighted, last_h_a_weighted, c_fusion_weighted], dim=1)
+            # Without HomoGD, c_fusion is not available, so we only use CA outputs
+            last_hs = torch.cat([last_h_l_weighted, last_h_v_weighted, last_h_a_weighted], dim=1)
         else:
             # Variant 1: Full model - all components
             last_h_l_weighted = torch.sigmoid(self.weight_l(last_h_l))

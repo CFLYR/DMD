@@ -59,6 +59,7 @@ class DMD():
         # Read max_epochs from args (can be dict-style or attribute-style due to edict)
         max_epochs = self.args.get('epochs', self.args.epochs if hasattr(self.args, 'epochs') else 30)
         max_epochs = int(max_epochs)  # Ensure it's an integer
+        max_epochs_original = max_epochs  # Store original for tracking
         
         logger.info(f"DEBUG: Trainer initialized with max_epochs = {max_epochs}")
         print(f"\n{'='*80}")
@@ -90,6 +91,13 @@ class DMD():
 
         while epochs < max_epochs:
             epochs += 1
+            
+            # TRACE: Log epoch progression with max_epochs check
+            print(f"\n{'='*80}")
+            print(f"TRACE: LOOP CHECK - epochs={epochs}, max_epochs={max_epochs}, max_epochs_original={max_epochs_original}")
+            print(f"  Condition (epochs < max_epochs): {epochs} < {max_epochs} = {epochs < max_epochs}")
+            print(f"  args.get('epochs') NOW: {self.args.get('epochs', 'NOT SET')}")
+            print(f"{'='*80}")
             
             # HARD SAFEGUARD: Explicitly check epoch limit
             if epochs > max_epochs:

@@ -1,11 +1,10 @@
 """
-Configuration Generator for DMD Experiments
-Generates 2 BERT aligned experiment configurations for reproducing Table 1 & 2 from the paper
+Configuration Generator for DMD Ablation Study
+Generates 12 configurations (6 variants × 2 datasets) for Table 3 reproduction
 
-NOTE: Data files only contain BERT (768-dim) features, not GloVe (300-dim).
-The 'text' key in .pkl files stores BERT features, despite the naming.
-Only the 2 BERT aligned experiments reported in the paper can be reproduced.
-Unaligned experiments are not in the paper, so they are excluded.
+NOTE: Using BERT (768-dim) features on UNALIGNED data only.
+Paper Table 3 uses GloVe, but we deviate to use available BERT features.
+Each variant has specific ablation flags (use_FD, use_HomoGD, use_CA, use_HeteroGD).
 """
 import json
 import os
@@ -111,32 +110,77 @@ BASE_CONFIG = {
     }
 }
 
-# 2 BERT aligned experiment configurations - exactly matching paper Table 1 & 2 (rows with *)
-# NOTE: Data files only contain BERT features (768-dim), no GloVe (300-dim)
-# The 'text' key in .pkl files stores 768-dim BERT, not 300-dim GloVe
-# Paper only reports Aligned BERT results, so we only reproduce those 2 experiments
-EXPERIMENTS = [
-    {
-        "name": "mosi_aligned_bert",
-        "dataset": "mosi",
-        "aligned": True,
-        "use_bert": True,
-        "expected_acc7": 45.6,
-        "table": "Table 1 - DMD (Ours)*"
+# 6 Ablation Variants × 2 Datasets = 12 Configurations
+# All use UNALIGNED data with BERT (768-dim) features
+# Variants progressively remove components to measure their contribution
+ABLATION_VARIANTS = {
+    'variant1_full': {
+        'use_FD': True,
+        'use_HomoGD': True,
+        'use_CA': True,
+        'use_HeteroGD': True,
+        'description': 'Full Model - All components active'
     },
-    {
-        "name": "mosei_aligned_bert",
-        "dataset": "mosei",
-        "aligned": True,
-        "use_bert": True,
-        "expected_acc7": 54.5,
-        "table": "Table 2 - DMD (Ours)*"
+    'variant2_no_hetero': {
+        'use_FD': True,
+        'use_HomoGD': True,
+        'use_CA': True,
+        'use_HeteroGD': False,
+        'description': 'Without HeteroGD - Remove heterogeneous graph distillation'
+    },
+    'variant3_no_ca': {
+        'use_FD': True,
+        'use_HomoGD': True,
+        'use_CA': False,
+        'use_HeteroGD': True,
+        'description': 'Without CA - Keep distillation but remove cross-modal attention'
+    },
+    'variant4_only_homo': {
+        'use_FD': True,
+        'use_HomoGD': True,
+        'use_CA': False,
+        'use_HeteroGD': False,
+        'description': 'Only HomoGD - Feature decoupling + homogeneous GD only'
+    },
+    'variant5_only_fd': {
+        'use_FD': True,
+        'use_HomoGD': False,
+        'use_CA': False,
+        'use_HeteroGD': False,
+        'description': 'Only FD - Feature decoupling only, no GD or CA'
+    },
+    'variant6_baseline': {
+        'use_FD': False,
+        'use_HomoGD': False,
+        'use_CA': False,
+        'use_HeteroGD': False,
+        'description': 'Baseline - No advanced modules, direct concatenation'
     }
-]
+}
+
+# Loss weight parameters (conditional based on active modules)
+LOSS_WEIGHTS = {
+    'lambda_1': 0.1,  # Decoupling loss weight (active when use_FD=True)
+    'lambda_2': 0.05,  # Graph distillation loss weight (active when use_HomoGD or use_HeteroGD=True)
+    'gamma': 0.1  # Orthogonality & margin weight (active when use_FD=True)
+}
+
+# Generate 12 experiments: 6 variants × 2 datasets (both unaligned)
+EXPERIMENTS = []
+for variant_name, variant_flags in ABLATION_VARIANTS.items():
+    for dataset in ['mosi', 'mosei']:
+        EXPERIMENTS.append({
+            "name": f"{variant_name}_{dataset}",
+            "variant": variant_name,
+            "dataset": dataset,
+            "aligned": False,  # All ablation experiments use UNALIGNED data
+            "use_bert": True,  # All use BERT (768-dim) features
+            **variant_flags
+        })
 
 
 def generate_config(exp_config):
-    """Generate a configuration file for a specific experiment"""
+    """Generate a configuration file for a specific ablation experiment"""
     import copy
     config = copy.deepcopy(BASE_CONFIG)
     
@@ -147,6 +191,22 @@ def generate_config(exp_config):
     # Update common params
     config["dmd"]["commonParams"]["need_data_aligned"] = aligned
     config["dmd"]["commonParams"]["use_bert"] = use_bert
+    
+    # Add ablation flags to config
+    config["dmd"]["commonParams"]["use_FD"] = exp_config["use_FD"]
+    config["dmd"]["commonParams"]["use_HomoGD"] = exp_config["use_HomoGD"]
+    config["dmd"]["commonParams"]["use_CA"] = exp_config["use_CA"]
+    config["dmd"]["commonParams"]["use_HeteroGD"] = exp_config["use_HeteroGD"]
+    
+    # Add loss weights
+    config["dmd"]["commonParams"]["lambda_1"] = LOSS_WEIGHTS['lambda_1']
+    config["dmd"]["commonParams"]["lambda_2"] = LOSS_WEIGHTS['lambda_2']
+    config["dmd"]["commonParams"]["gamma"] = LOSS_WEIGHTS['gamma']
+    
+    # Add fixed hyperparameters for ablation study
+    config["dmd"]["datasetParams"][dataset]["batch_size"] = 16
+    config["dmd"]["datasetParams"][dataset]["epochs"] = 30
+    config["dmd"]["datasetParams"][dataset]["learning_rate"] = 0.0001
     
     # Update feature dimensions based on use_bert
     text_dim = 768 if use_bert else 300
@@ -166,21 +226,25 @@ def save_config(config, exp_name, output_dir):
     return output_path
 
 
-def generate_all_configs(output_dir="experiments/configs"):
-    """Generate 2 BERT aligned experiment configurations"""
+def generate_all_configs(output_dir="experiments/ablation_study/configs"):
+    """Generate 12 ablation experiment configurations (6 variants × 2 datasets)"""
     # Get the DMD root directory
     script_dir = Path(__file__).parent
     dmd_root = script_dir.parent
     output_dir = dmd_root / output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    print("=" * 70)
-    print("DMD Experiment Configuration Generator (BERT Aligned Only)")
-    print("=" * 70)
-    print(f"\nNOTE: Data files only contain BERT features (768-dim)")
-    print(f"      Only aligned experiments from paper tables are reproduced\n")
-    print(f"Generating configurations for {len(EXPERIMENTS)} experiments...")
-    print(f"Output directory: {output_dir}\n")
+    print("=" * 80)
+    print("DMD Ablation Study Configuration Generator")
+    print("=" * 80)
+    print(f"\nGenerating {len(EXPERIMENTS)} configurations (6 variants × 2 datasets)")
+    print(f"Dataset: UNALIGNED MOSI & MOSEI")
+    print(f"Features: BERT (768-dim)")
+    print(f"Seed: 1111 (fixed)")
+    print(f"Batch Size: 16")
+    print(f"Epochs: 30")
+    print(f"Loss Weights: λ₁={LOSS_WEIGHTS['lambda_1']}, λ₂={LOSS_WEIGHTS['lambda_2']}, γ={LOSS_WEIGHTS['gamma']}")
+    print(f"\nOutput directory: {output_dir}\n")
     
     generated_files = []
     for exp in EXPERIMENTS:
@@ -188,26 +252,33 @@ def generate_all_configs(output_dir="experiments/configs"):
         config_path = save_config(config, exp["name"], output_dir)
         generated_files.append({
             "name": exp["name"],
+            "variant": exp["variant"],
             "path": config_path,
             "dataset": exp["dataset"].upper(),
-            "aligned": "Aligned" if exp["aligned"] else "Unaligned",
-            "feature": "BERT (768d)" if exp["use_bert"] else "GloVe (300d)",
-            "expected_acc7": exp["expected_acc7"],
-            "table": exp["table"]
+            "use_FD": "✓" if exp["use_FD"] else "✗",
+            "use_HomoGD": "✓" if exp["use_HomoGD"] else "✗",
+            "use_CA": "✓" if exp["use_CA"] else "✗",
+            "use_HeteroGD": "✓" if exp["use_HeteroGD"] else "✗",
+            "description": exp["description"]
         })
     
-    print("\n" + "=" * 70)
-    print("Configuration Summary")
-    print("=" * 70)
-    print(f"{'Experiment':<25} {'Dataset':<8} {'Aligned':<10} {'Feature':<15} {'Expected ACC7'}")
-    print("-" * 70)
+    print("\n" + "=" * 80)
+    print("Configuration Summary - Ablation Variants")
+    print("=" * 80)
+    print(f"{'Variant':<20} {'Dataset':<7} {'FD':<4} {'HomoGD':<8} {'CA':<4} {'HeteroGD':<10} {'Description'}")
+    print("-" * 80)
     for item in generated_files:
-        exp_acc = f"{item['expected_acc7']:.1f}%" if item['expected_acc7'] else "N/A"
-        print(f"{item['name']:<25} {item['dataset']:<8} {item['aligned']:<10} {item['feature']:<15} {exp_acc}")
+        print(f"{item['variant']:<20} {item['dataset']:<7} {item['use_FD']:<4} {item['use_HomoGD']:<8} {item['use_CA']:<4} {item['use_HeteroGD']:<10} {item['description'][:35]}")
     
-    print("\n" + "=" * 70)
+    print("\n" + "=" * 80)
     print(f"✓ Successfully generated {len(generated_files)} configuration files")
-    print("=" * 70)
+    print(f"✓ Saved to: {output_dir}")
+    print("=" * 80)
+    print("\nNext steps:")
+    print("  1. Review generated configs in", output_dir)
+    print("  2. Run training: python 'run will be ablation.py' --mode train --variant <name> --dataset <mosi|mosei>")
+    print("  3. Run testing: python 'run will be ablation.py' --mode test")
+    print("=" * 80)
     
     return generated_files
 

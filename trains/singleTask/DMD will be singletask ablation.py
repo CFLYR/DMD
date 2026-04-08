@@ -89,6 +89,14 @@ class DMD():
             net.append(net_distill_hetero)
         model = net
 
+        # CRITICAL TRACE: Log max_epochs value RIGHT BEFORE while loop
+        print(f"\n{'='*80}")
+        print(f"CRITICAL: ABOUT TO START WHILE LOOP")
+        print(f"  max_epochs = {max_epochs}")
+        print(f"  epochs = {epochs}")
+        print(f"  Condition 'epochs < max_epochs' evaluates to: {epochs} < {max_epochs} = {epochs < max_epochs}")
+        print(f"{'='*80}\n")
+
         while epochs < max_epochs:
             epochs += 1
             

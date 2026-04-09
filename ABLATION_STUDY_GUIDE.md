@@ -41,7 +41,7 @@ Variant 5 (Only FD):     FD ✓  HomoGD ✗  CA ✗  HeteroGD ✗  → combined_
 Variant 6 (Baseline):    FD ✗  HomoGD ✗  CA ✗  HeteroGD ✗  → combined_dim = d_l+d_a+d_v
 ```
 
-### 3. `trains/singleTask/DMD will be singletask ablation.py`
+### 3. `trains/singleTask/DMDablation.py`
 **Purpose**: Training loop with conditional loss calculation
 
 **Key Features**:
@@ -270,7 +270,7 @@ ls experiments/ablation_study/models/variant1_full_mosi/
 
 **Debug**:
 1. Check ablation flags in config file
-2. Verify `combined_dim` calculation in `dmd will be ablation.py` lines 47-68
+2. Verify `combined_dim` calculation in `dmd.py` lines 47-68
 3. Check which modules are being initialized (lines 71-156)
 
 ### Issue 4: Loss Keys Missing in Output
@@ -322,8 +322,8 @@ DMD/
 │   └── batch_test will be ablation.py        (MODIFIED)
 ├── trains/singleTask/
 │   ├── model/
-│   │   └── dmd will be ablation.py           (MODIFIED)
-│   └── DMD will be singletask ablation.py    (MODIFIED)
+│   │   └── dmd.py           (MODIFIED)
+│   └── DMDablation.py    (MODIFIED)
 └── run will be ablation.py                    (MODIFIED)
 ```
 

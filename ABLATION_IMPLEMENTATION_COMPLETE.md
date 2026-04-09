@@ -26,8 +26,8 @@ python "run will be ablation.py" --mode test
 | # | File | Purpose |
 |---|------|---------|
 | 1 | `scripts/config_generator will be ablation.py` | Generate 12 ablation configs |
-| 2 | `trains/singleTask/model/dmd will be ablation.py` | Model with structural ablation |
-| 3 | `trains/singleTask/DMD will be singletask ablation.py` | Training loop with conditional losses |
+| 2 | `trains/singleTask/model/dmd.py` | Model with structural ablation |
+| 3 | `trains/singleTask/DMDablation.py` | Training loop with conditional losses |
 | 4 | `scripts/batch_train_will be ablation.py` | Single variant training CLI |
 | 5 | `scripts/batch_test will be ablation.py` | Batch testing & Table 3 generation |
 | 6 | `run will be ablation.py` | Main entry point |

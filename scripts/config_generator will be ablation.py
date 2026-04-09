@@ -2,8 +2,8 @@
 Configuration Generator for DMD Ablation Study
 Generates 12 configurations (6 variants × 2 datasets) for Table 3 reproduction
 
-NOTE: Using BERT (768-dim) features on UNALIGNED data only.
-Paper Table 3 uses GloVe, but we deviate to use available BERT features.
+NOTE: Using GloVe (300-dim) features on UNALIGNED data.
+Dataset path: ./dataset/GloVe/
 Each variant has specific ablation flags (use_FD, use_HomoGD, use_CA, use_HeteroGD).
 """
 import json
@@ -13,19 +13,19 @@ from pathlib import Path
 # Base configuration template
 BASE_CONFIG = {
     "datasetCommonParams": {
-        "dataset_root_dir": "./dataset",
+        "dataset_root_dir": "./dataset/GloVe",
         "mosi": {
             "aligned": {
-                "featurePath": "MOSI/Processed/aligned_50.pkl",
-                "feature_dims": [300, 5, 20],  # Will be updated based on use_bert
+                "featurePath": "mosi_data_noalign.pkl",
+                "feature_dims": [300, 5, 20],  # GloVe 300-dim
                 "train_samples": 1284,
                 "num_classes": 3,
                 "language": "en",
                 "KeyEval": "Loss"
             },
             "unaligned": {
-                "featurePath": "MOSI/Processed/unaligned_50.pkl",
-                "feature_dims": [300, 5, 20],
+                "featurePath": "mosi_data_noalign.pkl",
+                "feature_dims": [300, 5, 20],  # GloVe 300-dim
                 "train_samples": 1284,
                 "num_classes": 3,
                 "language": "en",
@@ -34,16 +34,16 @@ BASE_CONFIG = {
         },
         "mosei": {
             "aligned": {
-                "featurePath": "MOSEI/Processed/aligned_50.pkl",
-                "feature_dims": [300, 74, 35],
+                "featurePath": "mosei_senti_data_noalign.pkl",
+                "feature_dims": [300, 74, 35],  # GloVe 300-dim
                 "train_samples": 16326,
                 "num_classes": 3,
                 "language": "en",
                 "KeyEval": "Loss"
             },
             "unaligned": {
-                "featurePath": "MOSEI/Processed/unaligned_50.pkl",
-                "feature_dims": [300, 74, 35],
+                "featurePath": "mosei_senti_data_noalign.pkl",
+                "feature_dims": [300, 74, 35],  # GloVe 300-dim
                 "train_samples": 16326,
                 "num_classes": 3,
                 "language": "en",
@@ -111,7 +111,7 @@ BASE_CONFIG = {
 }
 
 # 6 Ablation Variants × 2 Datasets = 12 Configurations
-# All use UNALIGNED data with BERT (768-dim) features
+# All use UNALIGNED data with GloVe (300-dim) features
 # Variants progressively remove components to measure their contribution
 ABLATION_VARIANTS = {
     'variant1_full': {
@@ -174,7 +174,7 @@ for variant_name, variant_flags in ABLATION_VARIANTS.items():
             "variant": variant_name,
             "dataset": dataset,
             "aligned": False,  # All ablation experiments use UNALIGNED data
-            "use_bert": True,  # All use BERT (768-dim) features
+            "use_bert": False,  # All use GloVe (300-dim) features
             **variant_flags
         })
 
@@ -239,7 +239,7 @@ def generate_all_configs(output_dir="experiments/ablation_study/configs"):
     print("=" * 80)
     print(f"\nGenerating {len(EXPERIMENTS)} configurations (6 variants × 2 datasets)")
     print(f"Dataset: UNALIGNED MOSI & MOSEI")
-    print(f"Features: BERT (768-dim)")
+    print(f"Features: GloVe (300-dim)")
     print(f"Seed: 1111 (fixed)")
     print(f"Batch Size: 16")
     print(f"Epochs: 30")

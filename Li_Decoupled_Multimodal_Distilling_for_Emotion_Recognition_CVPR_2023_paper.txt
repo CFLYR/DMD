@@ -1,0 +1,923 @@
+﻿This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+
+the final published version of the proceedings is available on IEEE Xplore.
+
+Decoupled Multimodal Distilling for Emotion Recognition
+
+Yong Li, Yuanzhi Wang, Zhen Cui∗
+PCA Lab, Key Lab of Intelligent Perception and Systems for High-Dimensional
+
+Information of Ministry of Education, School of Computer Science and Engineering,
+Nanjing University of Science and Technology, Nanjing, China.
+
+{yong.li, yuanzhiwang, zhen.cui}@njust.edu.cn
+
+Abstract 80 Language
+75 It is very loyal to the book
+
+Human multimodal emotion recognition (MER) aims to 70 Vision
+perceive human emotions via language, visual and acous- 65
+
+60
+tic modalities. Despite the impressive performance of pre- 55
+vious MER approaches, the inherent multimodal hetero- Acoustic
+
+geneities still haunt and the contribution of different modal-
+ities varies significantly. In this work, we mitigate this issue (a) Unimodal Accuracy (b) Cross-modal Distillation  
+by proposing a decoupled multimodal distillation (DMD)
+approach that facilitates flexible and adaptive crossmodal Shared  Encoder
+knowledge distillation, aiming to enhance the discrimina- Language
+tive features of each modality. Specially, the representation It is very loyal to the book
+
+of each modality is decoupled into two parts, i.e., modality- Vision Homogeneous GD
+irrelevant/-exclusive spaces, in a self-regression manner. Private Encoder
+DMD utilizes a graph distillation unit (GD-Unit) for each
+decoupled part so that each GD can be performed in a more Acoustic
+specialized and effective manner. A GD-Unit consists of Heterogeneous GD
+a dynamic graph where each vertice represents a modality 1. Input 2. Feature Decoupling 3. Graph Distillation
+and each edge indicates a dynamic knowledge distillation. (c) Our proposed Decoupled Multimodal Distillation
+Such GD paradigm provides a flexible knowledge trans-
+fer manner where the distillation weights can be automati- Figure 1. (a) illustrates the significant emotion recognition dis-
+cally learned, thus enabling diverse crossmodal knowledge crepancies using unimodality, adapted from Mult [28]. (b) shows
+transfer patterns. Experimental results show DMD con- the conventional cross-modal distillation. (c) shows our proposed
+
+sistently obtains superior performance than state-of-the-art decoupled multimodal distillation (DMD) method. DMD consists
+
+MER methods. Visualization results show the graph edges of two graph distillation (GD) units: homogeneous GD and hetero-
+
+in DMD exhibit meaningful distributional patterns w.r.t. the geneous GD. The decoupled GD paradigm decreases the burden of
+
+modality-irrelevant/-exclusive feature spaces. Codes are re- absorbing knowledge from the heterogeneous data and allows each
+GD to be performed in a more specialized and effective manner.
+
+leased at https://github.com/mdswyz/DMD.
+
+1. Introduction search topics of affective computing with abundant appeal-
+ing applications, such as intelligent tutoring systems [24],
+
+Human multimodal emotion recognition (MER) aims product feedback estimation [18], and robotics [15].
+to perceive the sentiment attitude of humans from video For MER, different modalities in the same video seg-
+clips [13, 17]. The video flows involve time-series data ment are often complementary to each other, providing ex-
+from various modalities, e.g., language, acoustic, and vi- tra cues for semantic and emotional disambiguation. The
+sion. This rich multimodality facilitates us in understanding core part of MER is multimodal representation learning and
+human behaviors and intents from a collaborative perspec- fusion, in which a model aims to encode and integrate repre-
+tive. Recently, MER has become one of the most active re- sentations from multiple modalities to understand the emo-
+
+* The corresponding author. tion behind the raw data. Despite the achievement of the
+
+6631
+
+Accuracy (%)
+
+
+
+mainstream MER methods [7, 28, 33], the intrinsic hetero- resentations and reduces the discrepancy between the high-
+geneities among different modalities still perplex us and level semantic concepts that exist in different modalities.
+increase the difficulty of robust multimodal representation For simplification, we respectively name the distillation on
+learning. Different modalities, e.g., image, language, and the decoupled multimodal features as homogeneous graph
+acoustic, contain different ways of conveying semantic in- knowledge distillation (HomoGD) and heterogeneous graph
+formation. Typically, the language modality consists of lim- knowledge distillation (HeteroGD). The reformulation al-
+ited transcribed texts and has more abstract semantics than lows us to explicitly explore the interaction between differ-
+nonverbal behaviors. As illustrated in Fig. 1 (a), language ent modalities in each decoupled space.
+plays the most important role in MER and the intrinsic het- The contributions of this work can be summarized as:
+erogeneities result in significant performance discrepancies
+among different modalities [25, 28, 31]. • We propose a decoupled multimodal distillation
+
+framework, Decoupled Multimodal Distillation
+One way to mitigate the conspicuous modality hetero-
+
+(DMD), to learn the dynamic distillations across
+geneities is to distill the reliable and generalizable knowl-
+
+modalities for robust MER. In DMD, we explic-
+edge from the strong modality to the weak modality [6],
+
+itly decouple the multimodal representations into
+as illustrated in Fig. 1 (b). However, such manual assign-
+
+modality-irrelevant/-exclusive spaces to facilitate KD
+ment for the distillation direction or weights should be cum-
+
+on the two decoupled spaces. DMD provides a flexible
+bersome because there are various potential combinations.
+
+knowledge transfer manner where the distillation
+Instead, the model should learn to automatically adapt the
+
+directions and weights can be automatically learned,
+distillation according to different examples, e.g, many emo-
+
+thus enabling flexible knowledge transfer patterns.
+tions are easier to recognize via language while some are
+easier by vision. Furthermore, the significant feature dis- • We conduct comprehensive experiments on public
+tribution mismatch cross the modalities makes the direct MER datasets and obtain superior or comparable re-
+crossmodal distillation sub-optimal [21, 37]. sults than the state-of-the-arts. Visualization results
+
+To this end, we propose a decoupled multimodal distil- verify the feasibility of DMD and the graph edges
+lation (DMD) method to learn dynamic distillations across exhibit meaningful distributional patterns w.r.t. Ho-
+modalities, as illustrated in Fig. 1 (c). Typically, the features moGD and HeteroGD.
+of each modality are decoupled into modality-irrelevant/-
+exclusive spaces via shared encoder and the private en- 2. Related Works
+codes, respectively. As to achieve the feature decoupling,
+we devise a self-regression mechanism that predicts the 2.1. Multimodal emotion recognition
+decoupled modality features and then regresses them self- Multimodal emotion recognition (MER) aims to infer
+supervisedly. To consolidate the feature decoupling, we human sentiment from the language, visual and acoustic in-
+incorporate a margin loss that regularizes the proximity formation embedded in the video clips. The heterogeneity
+in relationships of the representations across modalities across modalities can provide various levels of information
+and emotions. Consequently, the decoupled GD paradigm for MER. The mainstream MER approaches can be divided
+would decrease the burden of absorbing knowledge from into two categories: fusion strategy-based [14, 33, 34] and
+the heterogeneous data and allows each GD to be performed crossmodal attention-based [13, 17, 28].
+in a more specialized and effective manner. The former aims to design sophisticated multimodal fu-
+
+Based on the decoupled multimodal feature spaces, sion strategies to generate discriminative multimodal rep-
+DMD utilizes a graph distillation unit (GD-Unit) in each resentations, e.g., Zadeh et al. [33] designed a Tensor Fu-
+space so that the crossmodal knowledge distillation can be sion Network (TFN) that can fuse multimodal informa-
+performed in a more specialized and effective manner. A tion progressively. However, the inherent heterogeneity
+GD-Unit consists of a graph that (1) vertices represent- and the intrinsic information redundancy across modali-
+ing the representations or logits from the modalities and ties hinders the fusion between the multimodal features.
+(2) edges indicating the knowledge distillation directions Therefore, some work aims to explore the characteristics
+and weights. As the distribution gap among the modality- and commonalities of multimodal representations via fea-
+irrelevant (homogeneous) features is sufficiently reduced, ture decoupling to facilitate more effective multimodal rep-
+GD can be directly applied to capture the inter-modality resentation fusion [7, 29, 32]. Hazarika et al. [7] decom-
+semantic correlations. For the modality-exclusive (hetero- posed multimodal features into modality-invariant/-specific
+geneous) counterparts, we exploit the multimodal trans- components to learn the refined multimodal representa-
+former [28] to build the semantic alignment and bridge the tions. The decoupled multimodal representations reduce
+distribution gap. The cross-modal attention mechanism in the information redundancy and provide a holistic view of
+the multimodal transformer reinforces the multimodal rep- the multimodal data. Recently, crossmodal attention-based
+
+6632
+
+
+
+approaches have driven the development of MER since moGD and HeteroGD. In HomoGD, homogeneous multi-
+they learn the cross-modal correlations to obtain the rein- modal features are mutually distilled to compensate the rep-
+forced modality representation. A representative work is resentation ability for each other. In HeteroGD, multimodal
+MulT [28]. This work proposes the multimodal transformer transformers are introduced to explicitly build inter-modal
+that consists of a cross-modal attention mechanism to learn correlations and semantic alignment for further distilling.
+the potential adaption and correlations from one modality The GD detail is introduced in Sec. 3.2. Finally, the refined
+to another, thereby achieving semantic alignment between multimodal features through distilling are adaptively fused
+modalities. Lv et al. [17] designed a progressive modality for robust MER. Below, we present the details of the three
+reinforcement method based on [28], it aims to learn the po- parts of DMD.
+tential adaption and correlations from multimodal represen-
+tation to unimodal representation. Our proposed DMD has 3.1. Multimodal feature decoupling
+an essential difference with the previous feature-decoupling We consider three modalities, i.e., language (L), visual
+methods [7, 29, 32] because DMD is capable of distilling (V), acoustic (A). Firstly, we exploit three separate 1D tem-
+cross-modal knowledge in the decoupled feature spaces. poral convolutional layers to aggregate temporal informa-
+
+2.2. Knowledge distillation tion and obtain the low-level multimodal features: X̃m ∈
+Tm×d
+
+R m , where m ∈ {L, V,A} indicates a modality. Af-
+The concept of knowledge distillation (KD) was first ter this shallow encoding, each modality preserves the in-
+
+proposed in [9] to transfer knowledge via minimizing the put temporal dimension to facilitate handling unaligned and
+KL-Divergence between prediction logits of teachers and aligned cases simultaneously. Moreover, all modalities are
+students. Subsequently, various KD methods were pro- scaled to the same feature dimension, i.e., dL = dV =
+posed [4, 5, 20, 39] based on [9] and further extended to dA = d, for convenient subsequent feature decoupling.
+distillation between intermediate features [1, 8, 22, 27]. To decouple the multimodal features into homoge-
+
+Most KD methods focus on transferring knowledge from neous (modality-irrelevant) part Xcom
+m and heterogeneous
+
+the teacher to the student, while some recent studies have (modality-exclusive) part Xprt
+m , we exploit a shared multi-
+
+used graph structures to explore the effective message pass- modal encoder Ecom and three private encoders Eprt
+m to ex-
+
+ing mechanism between multiple teachers and students with plicitly predict the decoupled features. Formally,
+multiple instances of knowledge [16, 19, 38]. Zhang et
+al. [38] proposed a graph distillation (GD) method for Xcom
+
+m = Ecom(X̃m),Xprt
+m = Eprt
+
+m (X̃m). (1)
+video classification, where each vertex represented a self-
+
+To distinguish the differences between Xcom
+m and Xprt
+
+supervised teacher and edges represented the direction of m and
+distillation from multiple self-supervised teachers to the mitigate the feature ambiguity, we synthesize the vanilla
+student. Luo et al. [16] considered the modality discrep- coupled features X̃m in a self-regression manner. Mathe-
+
+matically speaking, we concatenate Xcom
+m and Xprt
+
+ancy to incorporate privileged information from the source m for each
+domain and modeled a directed graph to explore the rela- modality and exploit a private decoder Dm to produce the
+tionship between different modalities. Each vertex repre- coupled feature, i.e., Dm([Xcom
+
+m ,Xprt
+m ]). Subsequently, the
+
+sented a modality and the edges indicated the connection coupled feature will be re-encoded via the private encoders
+strength (i.e., distillation strength) between one modality Eprt
+
+m to regress the heterogeneous features. The notation [.]
+and another. Different from them, we aim to use exclu- means feature concatenation. Formally, the discrepancy be-
+sive GD-Units in the decoupled feature spaces to facilitate tween the vanilla/synthesized coupled multimodal features
+effective cross-modality distillation. can be formulated as:
+
+3. The Proposed Method Lrec = ‖X̃m −Dm([Xcom
+m ,Xprt
+
+m ])‖2F . (2)
+
+The framework of our DMD is illustrated in Fig. 2. It Further, the discrepancy between the vanilla/synthesized
+mainly consists of three parts: multimodal feature decou- heterogeneous features can be formulated as:
+pling, homogeneous GD (HomoGD), hetergeneous GD
+(HeteroGD). Considering the significant distribution mis- Lcyc = ‖Xprt
+
+m − Eprt
+m (Dm([Xcom
+
+m ,Xprt
+m ]))‖2F . (3)
+
+match of modalities, we decouple multimodal representa-
+tions into homogeneous and heterogeneous multimodal fea- For the above reconstruction losses, it still cannot guar-
+tures through learning shared and exclusive multimodal en- antee the complete feature decoupling. In fact, information
+coders. The decoupling detail is introduced in Sec. 3.1. To can freely leak between representations, e.g., all the modal-
+facilitate a flexible knowledge transfer, we next distill the ity information can be merely encoded in Xprt
+
+m so that the
+knowledge from homo/heterogeneous features, which are decoders can easily synthesize the input, leaving homoge-
+framed in two graph distillation units (GD-Unit), i.e., Ho- neous multimodal features meaningless. To consolidate the
+
+6633
+
+
+
+Homogeneous GD Language Language Shared 
+FC Encoder Decoder Encoder
+
+Language logits Visual Visual Concatenation
+FC Encoder
+
+It is very very Decoder
+Heterogeneous features
+
+loyal to the book FC Acoustic Acoustic 
+GD-Unit Encoder Decoder Homogeneous feature
+
+1D Conv
+
+Vision Positive
+Feature
+
+Decoupling fusion
+
+1D Conv Negative
+
+Acoustic
+
+Multimodal Heterogeneous GD
+Transformer FC
+Multimodal logits
+
+1D Conv FC
+Transformer
+Multimodal FC
+Transformer
+
+GD-Unit
+
+Figure 2. The framework of DMD. Given the input multimodal data, DMD encodes their respective shallow features X˜m, where m ∈
+{L, V,A}. In feature decoupling, DMD exploits the decoupled homo-/heterogeneous multimodal features Xcom
+
+m / Xprt
+m via the shared and
+
+exclusive encoders, respectively. Xprt
+m will be reconstructed in a self-regression manner (Sec. 3.1). Subsequently, Xcom
+
+m will be fed into a
+GD-Unit for adaptive knowledge distillation in HomoGD. In HeteroGD, Xprt
+
+m are reinforced to Zprt
+→m via multimodal transformers to bridge
+
+the distribution gap. The GD-Unit in HeteroGD takes Zprt
+→m as input for distillation (Sec. 3.2). Finally, Xcom
+
+m and Zprt
+→m will be adaptively
+
+fused for MER.
+
+feature decoupling, we argue that homogeneous representa- the heterogeneous multimodal features:
+tions from the same emotion but different modalities should ∑
+be more similar than those from the same modality but dif- Lort = cos(Xcom
+
+m ,Xprt
+m ). (5)
+
+ferent emotions. To this end, we define a margin loss as: m∈{L,V,A}
+
+L Finally, we combine these constraints to form the decou-
+ma∑r
+
+= pling loss,
+1
+| max(0, α−cos(Xcom
+
+S| m[i],X
+com
+m[j])+cos(X
+
+com
+m[i],X
+
+com
+m[k])), Ldec = Lrec + Lcyc + γ(Lmar + Lort), (6)
+
+(i,j,k)∈S
+
+(4) where γ is the balance factor.
+
+where we collect a triple tuple set S = {(i, j, k)|m[i] = 3.2. GD with Decoupled Multimodal Features
+m[j],m[i] = m[k], c[i] = c[j], c[i] = c[k]}. The m[i] For the decoupled homogeneous and heterogeneous mul-
+is the modality of sample i, c[i] is the class label of sam- timodal features, we design a graph distillation unit (GD-
+ple i, and cos(·, ·) means the cosine similarity between two Unit) on each of them to conduct adaptive knowledge dis-
+feature vectors. The loss in Eq. 4 constrains the homoge- tillation. Typically, a GD-Unit consists of a directed graph
+neous features that belong to the same emotion but different G. Let vi denote a node w.r.t a modality and wi→j indicates
+modalities or vice versa to differ, and thereby avoids deriv- the distillation strength from modality vi to vj . The distilla-
+ing trivial homogeneous features. α is a distance margin. tion from vi to vj is defined as the difference between their
+The distances of positive samples (same emotion; different corresponding logits, denoted with εi→j . Let E denotes the
+modalities) are constrained to be smaller than that of neg- distillation matrix with Eij = εi→j . For a target modality
+ative samples (same modality; different emotions) by the j, the weighted distillation loss can be formulated by con-
+margin α. Considering that the decoupled features respec- sidering the injection edges as,
+tively capture the modality-irrelevant/-exclusive character- ∑
+istics, we further formulate a soft orthogonality to reduce ζ:j = wi→j × εi→j , (7)
+the information redundancy between the homogeneous and vi∈N (vj)
+
+6634
+
+…
+
+
+
+where N (vj) represents the set of vertices injected to vj . For each target modality, we concatenate all enhanced fea-
+To learn a dynamic and adaptive weight that corresponds tures from other modalities to the target as the reinforced
+
+to the distillation strength w, we propose to encode the features, denotes with Zprt
+→m, which are used in the distil-
+
+modality logits and the representations into the graph edges. lation loss function as Lhetero
+dtl that can be naturally obtained
+
+Formally, via Eq. 9.
+Feature fusion. We use the reinforced heterogeneous
+
+wi→j = g([[f(Xi, θ1),Xi], [f(Xj , θ1),Xj ]], θ2), (8) features Zprt
+→m and the vanilla decoupled homogeneous fea-
+
+tures Xcom
+m for adaptive feature fusion with an adaptive
+
+where [·, ·] means feature concatenation, g is a fully-
+weight learned from each of them. Hereby, we obtain the
+
+connected (FC) layer with the learnable parameters θ2, and
+fused feature for multimodal emotion recognition.
+
+f is a FC layer for regressing logits with the parameters θ1.
+The graph edge weights W with Wij = wi→j can be con- 3.3. Objective optimization
+structed and learned by repetitively applying Eq. 8 over all
+pairs of modalities. To reduce the scale effects, we normal- We integrate the above losses to reach the full objective:
+
+ize W through the softmax operation. Consequently, the
+graph distillation loss to all modalities can be written as: Ltotal = Ltask + λ1Ldec + λ2Ldtl, (11)
+
+L where L
+dtl = ‖W E‖1, (9) task is the emotion task related loss (here mean ab-
+
+solute error), Ldtl = Lhomo
+dtl + Lhetero
+
+dtl means the distillation
+where  means element-wise product. Obviously, the dis- losses generated by HomoGD and HeteroGD, and λ1, λ2
+
+tillation graph in a GD-Unit provides a base for learning control the importance of different constraints.
+dynamic inter-modality interactions. Meanwhile, it facili-
+tates a flexible knowledge transfer manner where the distil- 4. Experiments
+lation strengths can be automatically learned, thus enabling
+diverse knowledge transfer patterns. Below, we elaborate Datasets. We evaluate DMD on CMU-MOSI [35] and
+
+on the details of HomoGD and HeteroGD. CMU-MOSEI [36] datasets. The experiments are con-
+
+HomoGD. As illustrated in Fig. 2, for the decoupled ho- ducted under the word-aligned and unaligned settings for
+
+mogeneous features Xcom
+m , as the distribution gap among the a more comprehensive comparison. CMU-MOSI consists
+
+modalities is already reduced sufficiently, we input the fea- of 2,199 short monologue video clips. The acoustic and
+
+tures Xcom
+m and the corresponding logits f(Xcom
+
+m ) to a GD- visual features in CMU-MOSI are extracted at a sampling
+
+Unit and calculate the graph edge matrix W and the distil- rate of 12.5 and 15 Hz, respectively. Among the samples,
+
+lation loss matrix E according to Eq. 8. Then, the overall 1,284, 229 and 686 samples are used as training, valida-
+
+distillation loss Lhomo
+dtl can be naturally obtained via Eq. 9. tion and testing set. CMU-MOSEI contains 22,856 sam-
+
+HeteroGD. The decoupled heterogeneous features Xprt ples of movie review video clips from YouTube (approxi-
+m
+
+focus on the diversity and the unique characteristics of each mately 10× the size of CMU-MOSI). The acoustic and vi-
+
+modality, and thus exhibit a significant distribution gap. sual features were extracted at a sampling rate of 20 and 15
+
+To mitigate this issue, we exploit the multimodal trans- Hz, respectively. According to the predetermined protocol,
+
+former [28] to bridge the feature distribution gap and build 16,326 samples are used for training, the remainng 1,871
+
+the modality adaptation. The core of the multimodal trans- and 4,659 samples are used for for validation and testing.
+
+former is the crossmodal attention unit (CA), which re- Each sample in CMU-MOSI and CMU-MOSEI was labeled
+
+ceives features from a pair of modalities and fuses cross- with a sentiment score which ranges from -3 to 3, including
+
+modal information. Take the language modality Xprt highly negative, negative, weakly negative, neutral, weakly
+L as
+
+the source and the visual modality Xprt
+V as the target, the positive, positive, and highly positive. Following previous
+
+cross-modal attention can be defined as: QV = Xprt
+V Pq , work [13, 17], we evaluate the MER performance using the
+
+K following metrics: 7-class accuracy (ACC7), binary accu-
+L = Xprt
+
+L Pk, and VL = Xprt
+L Pv where Pq,Pk,Pv are
+
+the learnable parameters. The individual head of can be ex- racy (ACC2) and F1 score.
+
+pressed as: Implementation details. On the two datasets, we ex-
+tract the unimodal language features via GloVe [23] and
+obtain 300-dimensional word features. For a fair compar-
+
+Zprt QV
+L→V = softmax( √K
+
+
+L )VL, (10)
+
+d ison with [7, 32] under the aligned setting, we additation-
+ally exploit a BERT-base-uncased pre-trained model [10]
+
+where Zprt
+L→V is the enhanced features from Language to Vi- to obtain a 768-dimensional hidden state as the word fea-
+
+sual, d means the dimension of QV and KL. For the three tures. For visual modality, each video frame was encoded
+modalities in MER, each modality will be reinforced by the via Facet [2] to represent the presence of the totally 35 fa-
+two others and the resulting features will be concatenated. cial action units [11, 12]. The acoustic modality was pro-
+
+6635
+
+
+
+Table 1. Comparison on CMU-MOSI dataset. Bold is the best. Table 3. Ablation study of the key components in DMD.
+Methods Setting ACC7 (%) ACC2 (%) F1 (%) Dataset FD HomoGD CA HeteroGD ACC7 F1
+
+EF-LSTM 33.7 75.3 75.2     41.9 83.5
+LF-LSTM 35.3 76.8 76.7    × 38.8 81.1
+TFN [33] 32.1 73.9 73.4   ×  37.5 80.6
+
+MOSI
+LMF [14] 32.8 76.4 75.7   × × 37.2 80.8
+MFM [29] 36.2 78.1 78.1  × × × 34.7 79.3
+
+RAVEN [30] 33.2 78.0 76.6 × × × × 32.4 79.0
+Aligned
+
+MCTN [26] 35.6 79.3 79.1     54.6 84.7
+MulT [28] 40.0 83.0 82.8    × 53.2 84.1
+PMR [17] 40.6 83.6 83.4   ×  52.4 83.8
+
+DMD (Ours) 41.4 84.5 84.4 MOSEI   × × 52.4 84.3
+MISA [7]∗ 42.3 83.4 83.6  × × × 51.6 82.8
+
+FDMER [32]∗ Aligned 44.1 84.6 84.7 × × × × 50.0 81.9
+DMD (Ours)∗ 45.6 86.0 86.0
+
+EF-LSTM 31.0 73.6 74.5 Table 4. Unimodal accuracy comparison on MOSEI dataset.
+LF-LSTM 33.7 77.6 77.8 w/o FD w/ FD
+
+Methods
+RAVEN [30] 31.7 72.7 73.1 Acc2 (%) / F1 (%) Acc2 (%) / F1 (%)
+MCTN [26] 32.7 75.9 76.4 L only 81.2 / 81.4 82.7 / 82.5
+
+Unaligned
+MulT [28] 39.1 81.1 81.0 V only 58.2 / 52.2 62.8 / 60.0
+PMR [17] 40.6 82.4 82.1 A only 53.4 / 54.0 64.9 / 62.5
+MICA [13] 40.8 82.6 82.7 Mean 64.3 / 62.5 70.1 / 68.3
+
+STD 12.1 / 13.4 8.9 / 10.1
+DMD (Ours) 41.9 83.5 83.5
+
+* means the input language features are BERT-based.
+
+Table 5. Ablation study of graph distillation (GD) on MulT.
+CMU-MOSI CMU-MOSEI
+
+Methods
+ACC7 ACC2 F1 ACC7 ACC2 F1
+
+Table 2. Comparison on CMU-MOSEI dataset. Bold is the best.
+Methods Setting ACC7 (%) ACC2 (%) F1 (%) MulT 39.1 81.1 81.0 50.7 81.6 81.6
+
+MulT (w/ GD) 39.4 82.2 82.2 51.0 82.3 82.5
+EF-LSTM 47.4 78.2 77.9
+
+DMD (Ours) 41.9 83.5 83.5 54.6 84.8 84.7
+LF-LSTM 48.8 80.6 80.6
+
+Graph-MFN [36] 45.0 76.9 77.0
+RAVEN [30] 50.0 79.1 79.5
+
+Aligned
+MCTN [26] 49.6 79.8 80.6 4.1. Comparison with the state-of-the-art
+MulT [28] 51.8 82.5 82.3
+
+We compare DMD with the current state-of-the-art
+PMR [17] 52.5 83.3 82.6
+
+DMD (Ours) 53.7 85.0 84.9 MER methods under the same dataset settings (unaligned
+MISA [7]∗ 52.2 85.5 85.3 or aligned), including EF-LSTM, LF-LSTM, TFN [33],
+
+FDMER [32]∗ Aligned 54.1 86.1 85.8 LMF [14], MFM [29], RAVEN [30], Graph-MFN [36],
+DMD (Ours)∗ 54.5 86.6 86.6 MCTN [26], MulT [28], PMR [17], MICA [13], MISA [7],
+
+EF-LSTM 46.3 76.1 75.9 and FDMER [32].
+LF-LSTM 48.8 77.5 78.2 Tab. 1 and Tab. 2 illustrate the comparison on CMU-
+
+RAVEN [30] 45.5 75.4 75.7
+MOSI and CMU-MOSEI datasets, respectively. Obviously,
+
+MCTN [26] 48.2 79.3 79.7
+Unaligned
+
+MulT [28] 50.7 81.6 81.6 our proposed DMD obtains superior MER accuracy than
+PMR [17] 51.8 83.1 82.8 other MER approaches under the unaligned and aligned set-
+MICA [13] 52.4 83.7 83.3 tings. Compared with the feature-disentangling-based MER
+
+DMD (Ours) 54.6 84.8 84.7 methods [7, 29, 32], our proposed DMD obtains consistent
+* means the input language features are BERT-based. improvements, indicating the feasibility of the incorporated
+
+GD-Unit, which is capable of perceiving the various inter-
+modality dynamics. For a further inverstigation, we will vi-
+sualize the learned graph edges in each GD-Unit in Sec. 4.2.
+
+cessed by COVAREP [3] to obtain the 74-dimensional fea- DMD consistently outperforms the methods [13, 17, 28]
+tures. The detailed neural network configurations in DMD that use multimodal transformer to learn crossmodal inter-
+are listed in the supplementary file. The optimal setting for actions and perform multimodal fusion. The reasons are
+λ1, λ2, γ was set as 0.1, 0.05, 0.1 via the MER performance two-fold: (1) DMD takes the modality-irrelevant/-exclusive
+on the validation set. We implemented all the experiments spaces into consideration concurrently and recudes the in-
+using PyTorch on a RTX 3090 GPU with 24GB memory. formation redundancy via feature decoupling. (2) DMD ex-
+We set the training batch size as 16 and trained DMD for 30 ploits twin GD-Units to adaptively distil knowledge among
+epoches until convergence. the modalities. On CMU-MOSEI dataset, Graph-MFN [36]
+
+6636
+
+
+
+(a) DMD (w/o Hom., Het.) (b) DMD (w/o Het.) (c) DMD 
+
+Non-negative
+
+Non-negative Negative
+Highly Negative Negative Weakly Negative Neutral Weakly Positive Positive Highly Positive
+
+L V A
+
+Figure 3. t-SNE visualization of decoupled homogeneous space on MOSEI. DMD shows the promising emotion category (binary or 7-
+class) separability in (c).
+
+(a) DMD (w/o Hom., Het.) (b) DMD (w/o Het.) (c) DMD
+we conduct experiments with or without HomoGD on MO-
+
+L L L
+V V V SEI dataset. The ACC2 results are: 80.9% vs. 82.4% for
+A A A
+
+language, 56.5% vs. 61.8% for vision, 54.4% vs. 64.1% for
+audio. However, conducting HeteroGD without the cross-
+modal attention units will generate degraded performance,
+indicating the multimodal transformer plays a key role in
+
+Figure 4. Visualization of the decoupled heterogeneous features bridging the multimodal distribution gap. Thirdly, with CA
+on MOSEI. DMD shows the best modality separability in (c). units and HeteroGD, DMD obtains conspicuous improve-
+
+ments, suggesting the importance of the taking advantage
+of the modality-exclusive features for robust MER.
+
+illustrates unsatisfactory results because the heterogeneity
+Besides, we compare our proposed DMD with the clas-
+
+and distribution gap across modalities hinder the learning
+sical MulT [28] for further investigation. The results are
+
+of the modality fusion in it. As a comparison, the mul-
+shown in Tab. 5, where MulT (w/ GD) means we add a GD-
+
+timodal features into DMD are decoupled into modality-
+Unit on MulT to conduct adaptive knowledge with the rein-
+
+irrelevant/-exclusive spaces. For the latter space, we use
+forced multimodal features. Essentially, the core difference
+
+multimodal transformer to bridge the distribution gap and
+between MulT (w/ GD) and DMD is that DMD incorpo-
+
+align the high-level semantics, thereby reducing the burden
+rates feature decoupling. The quantitative comparison in
+
+of absorbing knowledge from the heterogeneous features.
+Tab. 5 shows that DMD obtains consistent improvements
+
+4.2. Ablation study than MulT (w/ GD). It suggests decoupling the multimodal
+features before distillation is feasible and reasonable. Fur-
+
+Quantitative analysis. We evaluate the effects of thermore, DMD achieves more significant improvements
+DMD’s key components, including feature decoupling than the vanilla MulT, indicating the benefits of combing the
+(FD), HomoGD, crossmodal attention unit (CA), Het- feature decoupling and the graph distillation mechanisms.
+eroGD. The results are illustrated in Tab. 3. We conclude Visualization of the decoupled features. We visualize
+the observations below. the decoupled homogeneous and heterogeneous features of
+
+Firstly, FD enhances MER performance significantly, DMD, DMD (w/o Hom., Het.), DMD (w/o Het.) in Fig.3
+it indicates the decoupled and refined features can reduce and Fig.4 for a quantitative comparison. DMD (w/o Hom.,
+information redundancy and provide discriminative multi- Het.) denotes DMD without HomoGD and HeteroGD. Be-
+modal features. To further prove the effectiveness of FD, we sides, DMD (w/o Het.) means DMD without HeteroGD.
+conduct experiments on our baseline model with and with- To visualize the homogeneous features, we randomly se-
+out FD on MOSEI dataset. As shown in Tab. 4, FD brings lect 28 samples (four samples for each emotion category)
+consistent improvements for each unimodality. Meantime, in the testing set of the CMU-MOSEI dataset For the het-
+the performance gap for the three modalities is reduced as erogeneous features, we randomly select 400 samples in the
+the standard deviations of ACC2 and F1 are both decreased. testing set of the CMU-MOSEI dataset. The features of the
+Secondly, combing FD with HomoGD brings further ben- selected samples are projected into a 2D space by t-SNE.
+efits. Although the homogeneous features are embedded in For the homogeneous multimodal features of DMD and
+the same-dimension space, there still exists different dis- DMD (w/o Het.), the samples belonging to the same emo-
+criminative capabilities for the modalities. HomoGD can tion category naturally cluster together due to their inter-
+improve the weak modalities through GD. To verify this, modal homogeneity. With the decoupled homogeneous fea-
+
+6637
+
+
+
+0.35 0.35 0.35 0.35
+
+0.30 0.30 0.30 0.30
+
+0.25 0.25 0.25 0.25
+
+0.20 0.20 0.20 0.20
+
+0.15 0.15 0.15 0.15
+0 10 20 30 40 50 0 10 20 30 40 50 0 10 20 30 40 50 0 10 20 30 40 50
+
+Epoch  Epoch Epoch Epoch
+0.25 0.25 0.30 0.30
+
+0.20 0.20 0.25 0.25
+0.20 0.20
+
+0.15 0.15
+0.15 0.15
+
+0.10 0.10 0.10 0.10
+0.05 0.05 0.05 0.05
+
+0 10 20 30 40 50 0 10 20 30 40 50 0 10 20 30 40 50 0 10 20 30 40 50
+Epoch Epoch Epoch Epoch
+
+0.25 0.25 0.30 0.30
+0.20 0.20 0.25 0.25
+
+0.15 0.15 0.20 0.20
+0.15 0.15
+
+0.10 0.10 0.10 0.10
+0.05 0.05 0.05 0.05
+0.00 0.00 0.00 0.00
+
+0 10 20 30 40 50 0 10 20 30 40 50 0 10 20 30 40 50 0 10 20 30 40 50
+Epoch Epoch Epoch Epoch
+
+(a) Graph edges in HomoGD (b) Graph edges in HeteroGD
+
+Figure 5. Illustration of the graph edges in HomoGD and HeteroGD. In (a), L → A and L → V are dominated because the homogeneous
+language features contribute most and the other modalities perform poorly. In (b), L → A, L → V , and V → A are dominated. V → A
+emerges because the visual modality enhanced its feature discriminability via the multimodal transformer mechanism in HeteroGD.
+
+tures but without graph distillation mechanism in DMD and V → A are dominated. An interesting phenomenon is
+(w/o Hom., Het.), the samples merely show basic separa- that V → A emerges. This should be reasonable because
+bility for the binary non-negative and negative categories. the visual modality enhanced its feature discriminability via
+However, the samples are not distinguishable under the 7- the multimodal transformer mechanism in HeteroGD. Ac-
+class setting, indicating the features are not so discrimina- tually, the three modalities obtain 84.5%, 83.8%, 71.0% ac-
+tive than that of DMD or DMD (w/o Het.). The comparison curacy, respectively. Conclusively, the graph edges learn
+between DMD (w/o Hom., Het.) and DMD, and the com- meaningful patterns for adaptive crossmodal distillation.
+parison between DMD (w/o Hom., Het.) and DMD (w/o
+Het.) verifies the effectiveness of the graph distillation on
+the homogeneous multimodal features. 5. Conclusion and discussion
+
+In the heterogeneous space, due to its inter-modal het-
+erogeneity, the features of different samples should cluster Within this paper we have proposed a decoupled mul-
+by modalities. As shown in Fig 4, DMD shows the best fea- timodal distillation method (DMD) for MER. Our method
+ture separability, indicating the complementarity between is inspired by the observation that the contribution of dif-
+modalities is mostly enhanced. DMD (w/o Hom., Het.) and ferent modalities varies significantly. Therefore, robust
+DMD (w/o Het.) show less feature separability than DMD, MER can be achieved by distilling the reliable and gener-
+indicating the importance of the graph distillation on the alizable knowledge across the modalities. To mitigate the
+heterogeneous multimodal features. modality heterogeneities, DMD decouples the modal fea-
+
+Visualization of graph edges in the GD-Units. We tures into modality-irrelevant/-exclusive spaces in a self-
+
+show the dynamic edges in each GD-Unit in Fig. 5 for regression manner. Two GD-Units are incorporated for each
+
+analysis. Each graph edge corresponds to the strength of decoupled features to facilitate adaptive cross-modal dis-
+
+a directed distillation. We conclude the observations as: tillation. Quantitative and qualitative experiments consis-
+
+(1) The distillation in HomoGD are mainly dominated by tently demonstrate the effectiveness of DMD. A limitation
+
+L → A and L → V . This is because the decoupled ho- is that DMD does not explicitly consider the intra-modal
+
+mogeneous language modality still plays the most critical interactions. We will explore this in future work.
+
+role and outperforms visual or acoustic modality with sig- Acknowledgement: This work was supported by
+nificant advantages. For binary MER on the CMU-MOSEI the National Natural Science Foundation of China
+dataset, language, visual, acoustic modality respectively (62102180, 62072244), the Natural Science Foundation of
+obtains 80.9%, 56.5%, 54.4% accuracy using the decoupled Jiangsu Province (BK20210329), Shuangchuang Program
+homogeneous features. (2) For HeteroGD, L → A, L → V , of Jiangsu Province(JSSCBS20210210).
+
+6638
+
+
+
+References ference. Association for Computational Linguistics. Meeting,
+2018. 2, 6
+
+[1] Alexei Baevski, Wei-Ning Hsu, Qiantong Xu, Arun Babu, Ji- [15] Zhentao Liu, Min Wu, Weihua Cao, Luefeng Chen, Jianping
+atao Gu, and Michael Auli. Data2vec: A general framework Xu, Ri Zhang, Mengtian Zhou, and Junwei Mao. A facial ex-
+for self-supervised learning in speech, vision and language. pression emotion recognition based human-robot interaction
+In International Conference on Machine Learning, 2022. 3 system. IEEE/CAA Journal of Automatica Sinica, 4(4):668–
+
+[2] Tadas Baltrusaitis, Peter Robinson, and Louis-Philippe 676, 2017. 1
+Morency. Openface: an open source facial behavior analysis [16] Zelun Luo, Jun-Ting Hsieh, Lu Jiang, Juan Carlos Niebles,
+toolkit. In 2016 IEEE Winter Conference on Applications of and Li Fei-Fei. Graph distillation for action detection with
+Computer Vision (WACV), pages 1–10. IEEE, 2016. 5 privileged modalities. In ECCV, pages 166–183, 2018. 3
+
+[3] Gilles Degottex, John Kane, Thomas Drugman, Tuomo [17] Fengmao Lv, Xiang Chen, Yanyong Huang, Lixin Duan, and
+Raitio, and Stefan Scherer. Covarep—a collaborative voice Guosheng Lin. Progressive modality reinforcement for hu-
+analysis repository for speech technologies. In ICASSP, man multimodal emotion recognition from unaligned multi-
+pages 960–964. IEEE, 2014. 6 modal sequences. In CVPR, pages 2554–2562, 2021. 1, 2, 3,
+
+[4] Tommaso Furlanello, Zachary Lipton, Michael Tschannen, 5, 6
+Laurent Itti, and Anima Anandkumar. Born again neural net- [18] Prem Melville, Wojciech Gryc, and Richard D Lawrence.
+works. In International Conference on Machine Learning, Sentiment analysis of blogs by combining lexical knowledge
+pages 1607–1616, 2018. 3 with text classification. In Proceedings of the 15th ACM
+
+[5] Qiushan Guo, Xinjiang Wang, Yichao Wu, Zhipeng Yu, Ding SIGKDD international conference on Knowledge discovery
+Liang, Xiaolin Hu, and Ping Luo. Online knowledge distil- and data mining, pages 1275–1284, 2009. 1
+lation via collaborative learning. In CVPR, pages 11020– [19] Soma Minami, Tsubasa Hirakawa, Takayoshi Yamashita,
+11029, 2020. 3 and Hironobu Fujiyoshi. Knowledge transfer graph for deep
+
+[6] Saurabh Gupta, Judy Hoffman, and Jitendra Malik. Cross collaborative learning. In ACCV, 2020. 3
+
+modal distillation for supervision transfer. In Proceedings of [20] Seyed Iman Mirzadeh, Mehrdad Farajtabar, Ang Li, Nir
+
+the IEEE conference on computer vision and pattern recog- Levine, Akihiro Matsukawa, and Hassan Ghasemzadeh. Im-
+
+nition, pages 2827–2836, 2016. 2 proved knowledge distillation via teacher assistant. In AAAI,
+[7] Devamanyu Hazarika, Roger Zimmermann, and Soujanya pages 5191–5198, 2020. 3
+
+Poria. Misa: Modality-invariant and-specific representations [21] Dang Nguyen, Sunil Gupta, Trong Nguyen, Santu Rana,
+
+for multimodal sentiment analysis. In Proceedings of the Phuoc Nguyen, Truyen Tran, Ky Le, Shannon Ryan, and
+
+28th ACM international conference on multimedia, pages Svetha Venkatesh. Knowledge distillation with distribution
+
+1122–1131, 2020. 2, 3, 5, 6 mismatch. In Joint European Conference on Machine Learn-
+ing and Knowledge Discovery in Databases, pages 250–265.
+
+[8] Byeongho Heo, Jeesoo Kim, Sangdoo Yun, Hyojin Park, No-
+Springer, 2021. 2
+
+jun Kwak, and Jin Young Choi. A comprehensive overhaul
+of feature distillation. In CVPR, pages 1921–1930, 2019. 3 [22] Wonpyo Park, Dongju Kim, Yan Lu, and Minsu Cho. Rela-
+
+tional knowledge distillation. In CVPR, 2019. 3
+[9] Geoffrey Hinton, Oriol Vinyals, and Jeff Dean. Distilling the
+
+[23] Jeffrey Pennington, Richard Socher, and Christopher D Man-
+knowledge in a neural network. In NIPS workshop, 2015. 3
+
+ning. Glove: Global vectors for word representation. In
+[10] Jacob Devlin Ming-Wei Chang Kenton and Lee Kristina Proceedings of the 2014 conference on empirical methods in
+
+Toutanova. Bert: Pre-training of deep bidirectional trans- natural language processing (EMNLP), pages 1532–1543,
+formers for language understanding. In Proceedings of
+
+2014. 5
+naacL-HLT, pages 4171–4186, 2019. 5
+
+[24] Sintija Petrovica, Alla Anohina-Naumeca, and Hazim Kemal
+[11] Yong Li, Jiabei Zeng, and Shiguang Shan. Learning repre- Ekenel. Emotion recognition in affective tutoring systems:
+
+sentations for facial actions from unlabeled videos. IEEE Collection of ground-truth data. Procedia Computer Science,
+Transactions on Pattern Analysis and Machine Intelligence, 104:437–444, 2017. 1
+44(1):302–317, 2020. 5 [25] Hai Pham, Paul Pu Liang, Thomas Manzini, Louis-Philippe
+
+[12] Yong Li, Jiabei Zeng, Shiguang Shan, and Xilin Chen. Self- Morency, and Barnabás Póczos. Found in translation: Learn-
+supervised representation learning from videos for facial ac- ing robust joint representations by cyclic translations be-
+tion unit detection. In Proceedings of the IEEE/CVF Con- tween modalities. In Proceedings of the AAAI Conference on
+ference on Computer vision and pattern recognition, pages Artificial Intelligence, volume 33, pages 6892–6899, 2019. 2
+10924–10933, 2019. 5 [26] Hai Pham, Paul Pu Liang, Thomas Manzini, Louis-Philippe
+
+[13] Tao Liang, Guosheng Lin, Lei Feng, Yan Zhang, and Feng- Morency, and Barnabás Póczos. Found in translation: Learn-
+mao Lv. Attention is not enough: Mitigating the distribution ing robust joint representations by cyclic translations be-
+discrepancy in asynchronous multimodal sequence fusion. In tween modalities. In AAAI, pages 6892–6899, 2019. 6
+ICCV, pages 8148–8156, 2021. 1, 2, 5, 6 [27] Adriana Romero, Nicolas Ballas, Samira Ebrahimi Kahou,
+
+[14] Zhun Liu, Ying Shen, Varun Bharadhwaj Lakshmi- Antoine Chassang, Carlo Gatta, and Yoshua Bengio. Fitnets:
+narasimhan, Paul Pu Liang, Amir Zadeh, and Louis- Hints for thin deep nets. In NeurIPS, 2015. 3
+Philippe Morency. Efficient low-rank multimodal fusion [28] Yao-Hung Hubert Tsai, Shaojie Bai, Paul Pu Liang, J Zico
+with modality-specific factors. In Proceedings of the con- Kolter, Louis-Philippe Morency, and Ruslan Salakhutdinov.
+
+6639
+
+
+
+Multimodal transformer for unaligned multimodal language
+sequences. In Proceedings of the conference. Association for
+Computational Linguistics. Meeting, 2019. 1, 2, 3, 5, 6, 7
+
+[29] Yao-Hung Hubert Tsai, Paul Pu Liang, Amir Zadeh, Louis-
+Philippe Morency, and Ruslan Salakhutdinov. Learning fac-
+torized multimodal representations. In ICLR, 2019. 2, 3,
+6
+
+[30] Yansen Wang, Ying Shen, Zhun Liu, Paul Pu Liang, Amir
+Zadeh, and Louis-Philippe Morency. Words can shift: Dy-
+namically adjusting word representations using nonverbal
+behaviors. In AAAI, pages 7216–7223, 2019. 6
+
+[31] Yang Wu, Zijie Lin, Yanyan Zhao, Bing Qin, and Li-Nan
+Zhu. A text-centered shared-private framework via cross-
+modal prediction for multimodal sentiment analysis. In Find-
+ings of the Association for Computational Linguistics: ACL-
+IJCNLP 2021, pages 4730–4738, 2021. 2
+
+[32] Dingkang Yang, Shuai Huang, Haopeng Kuang, Yangtao Du,
+and Lihua Zhang. Disentangled representation learning for
+multimodal emotion recognition. In Proceedings of the 30th
+ACM International Conference on Multimedia, pages 1642–
+1651, 2022. 2, 3, 5, 6
+
+[33] Amir Zadeh, Minghai Chen, Soujanya Poria, Erik Cambria,
+and Louis-Philippe Morency. Tensor fusion network for mul-
+timodal sentiment analysis. In Empirical Methods in Natural
+Language Processing, EMNLP, 2017. 2, 6
+
+[34] Amir Zadeh, Paul Pu Liang, Navonil Mazumder, Soujanya
+Poria, Erik Cambria, and Louis-Philippe Morency. Memory
+fusion network for multi-view sequential learning. In AAAI,
+2018. 2
+
+[35] Amir Zadeh, Rowan Zellers, Eli Pincus, and Louis-Philippe
+Morency. Multimodal sentiment intensity analysis in videos:
+Facial gestures and verbal messages. IEEE Intelligent Sys-
+tems, 31(6):82–88, 2016. 5
+
+[36] AmirAli Bagher Zadeh, Paul Pu Liang, Soujanya Poria, Erik
+Cambria, and Louis-Philippe Morency. Multimodal lan-
+guage analysis in the wild: Cmu-mosei dataset and inter-
+pretable dynamic fusion graph. In Proceedings of the 56th
+Annual Meeting of the Association for Computational Lin-
+guistics, pages 2236–2246, 2018. 5, 6
+
+[37] Bo Zhang, Xiaoming Zhang, Yun Liu, Lei Cheng, and Zhou-
+jun Li. Matching distributions between model and data:
+Cross-domain knowledge distillation for unsupervised do-
+main adaptation. In Proceedings of the 59th Annual Meet-
+ing of the Association for Computational Linguistics and the
+11th International Joint Conference on Natural Language
+Processing (Volume 1: Long Papers), pages 5423–5433,
+2021. 2
+
+[38] Chenrui Zhang and Yuxin Peng. Better and faster: knowl-
+edge transfer from multiple self-supervised learning tasks via
+graph distillation for video classification. In IJCAI, 2018. 3
+
+[39] Borui Zhao, Quan Cui, Renjie Song, Yiyu Qiu, and Jiajun
+Liang. Decoupled knowledge distillation. In CVPR, 2022. 3
+
+6640

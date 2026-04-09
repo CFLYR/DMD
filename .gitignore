@@ -3,3 +3,6 @@
 *.safetensors
 *.DS_Store
 *.pth
+*.json
+*.csv
+*.log

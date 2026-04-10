@@ -243,7 +243,15 @@ class DMD(nn.Module):
                   (self.encoder_s_a(target_feat) if self.single_modal == 'A' else self.encoder_s_v(target_feat))
             c_x = self.encoder_c(target_feat)
             
-            # Pool features
+            # Generate c_x_sim for margin loss (before permute)
+            if self.single_modal == 'L':
+                c_x_sim = self.align_c_l(c_x.contiguous().view(target_feat.size(0), -1))
+            elif self.single_modal == 'A':
+                c_x_sim = self.align_c_a(c_x.contiguous().view(target_feat.size(0), -1))
+            else:  # V
+                c_x_sim = self.align_c_v(c_x.contiguous().view(target_feat.size(0), -1))
+            
+            # Pool features BEFORE permute (for classification and orthogonality loss)
             s_x_pooled = s_x.mean(dim=2)
             c_x_pooled = c_x.mean(dim=2)
             
@@ -254,22 +262,26 @@ class DMD(nn.Module):
             last_hs_proj += last_hs
             output = self.out_layer(last_hs_proj)
             
-            res['output_logit'] = output
-            res['s_x_pooled'] = s_x_pooled
-            res['c_x_pooled'] = c_x_pooled
-            res['origin_x'] = target_feat  # For reconstruction loss
-            res['s_x'] = s_x  # For cycle consistency loss
-            res['c_x'] = c_x  # For other losses
-            
-            # Reconstruction and cycle consistency for single modal FD
+            # Reconstruction and cycle consistency for single modal FD (BEFORE permute)
             recon_x = self.decoder_l(torch.cat([s_x, c_x], dim=1)) if self.single_modal == 'L' else \
                       (self.decoder_a(torch.cat([s_x, c_x], dim=1)) if self.single_modal == 'A' else \
                        self.decoder_v(torch.cat([s_x, c_x], dim=1)))
             s_x_r = self.encoder_s_l(recon_x) if self.single_modal == 'L' else \
                     (self.encoder_s_a(recon_x) if self.single_modal == 'A' else self.encoder_s_v(recon_x))
             
+            # Permute for loss calculation (to match multi-modal format)
+            s_x = s_x.permute(2, 0, 1)  # [seq_len, batch_size, feature_dim]
+            c_x = c_x.permute(2, 0, 1)
+            
+            res['output_logit'] = output
+            res['s_x_pooled'] = s_x_pooled
+            res['c_x_pooled'] = c_x_pooled
+            res['origin_x'] = target_feat  # For reconstruction loss
+            res['s_x'] = s_x  # For cycle consistency loss (after permute)
+            res['c_x'] = c_x  # For other losses (after permute)
+            res['c_x_sim'] = c_x_sim  # For margin loss
             res['recon_x'] = recon_x
-            res['s_x_r'] = s_x_r
+            res['s_x_r'] = s_x_r  # Before permute, for cycle consistency
             
             return res
         

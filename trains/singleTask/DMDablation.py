@@ -167,7 +167,7 @@ class DMD():
                             loss_ort = self.cosine(output['s_x_pooled'], output['c_x_pooled'], target_ort)
                             
                             # Margin loss (simplified for single modal)
-                            c_x_sim = output['c_x'].contiguous().view(output['c_x'].size(0), -1)
+                            c_x_sim = output['c_x_sim']
                             ids, feats = [], []
                             for i in range(labels.size(0)):
                                 feats.append(c_x_sim[i].view(1, -1))

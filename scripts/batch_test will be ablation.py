@@ -1,177 +1,90 @@
 """
-Batch Testing Script for DMD Ablation Study
-Tests all trained ablation variants and generates Table 3 comparison
+Batch Testing Script for Table 4 single-modality FD ablation
 """
-import os
-import sys
-import json
 import csv
+import sys
 from pathlib import Path
-from datetime import datetime
 
-# Add parent directory to path
 script_dir = Path(__file__).parent
 dmd_root = script_dir.parent
 sys.path.insert(0, str(dmd_root))
 
 from run import DMD_run
 
-
-# Ablation variant definitions (matching Table 3 in paper)
-ABLATION_VARIANTS = [
-    {"name": "variant1_full", "description": "Full Model (All Components)"},
-    {"name": "variant2_no_hetero", "description": "w/o HeteroGD"},
-    {"name": "variant3_no_ca", "description": "Keep Distillation but w/o CA"},
-    {"name": "variant4_only_homo", "description": "Only HomoGD"},
-    {"name": "variant5_only_fd", "description": "Only FD"},
-    {"name": "variant6_baseline", "description": "Baseline (No Advanced Modules)"},
+VARIANTS = [
+    ("L", "table4_l_wo_fd_mosi", "w/o FD"),
+    ("L", "table4_l_w_fd_mosi", "w/ FD"),
+    ("V", "table4_v_wo_fd_mosi", "w/o FD"),
+    ("V", "table4_v_w_fd_mosi", "w/ FD"),
+    ("A", "table4_a_wo_fd_mosi", "w/o FD"),
+    ("A", "table4_a_w_fd_mosi", "w/ FD"),
 ]
 
-DATASETS = ["mosi", "mosei"]
 
-
-def test_variant(variant_name, dataset_name, config_dir="experiments/ablation_study/configs",
-                 model_dir="experiments/ablation_study/models", results_dir="experiments/ablation_study/results"):
-    """
-    Test a single ablation variant
-    
-    Returns:
-        dict: Test results with ACC7, ACC2, F1, Loss metrics
-    """
-    # Construct paths
-    config_file = dmd_root / config_dir / f"{variant_name}_{dataset_name}.json"
-    model_path = dmd_root / model_dir / f"{variant_name}_{dataset_name}" / f"dmd-{dataset_name}.pth"
+def test_variant(
+    variant_name,
+    config_dir="experiments/ablation_study_table4/configs",
+    model_dir="experiments/ablation_study_table4/models",
+    results_dir="experiments/ablation_study_table4/results",
+):
+    config_file = dmd_root / config_dir / f"{variant_name}.json"
+    model_path = dmd_root / model_dir / variant_name / "dmd-mosi.pth"
     results_save_dir = dmd_root / results_dir
     results_save_dir.mkdir(parents=True, exist_ok=True)
-    
-    print(f"\nTesting: {variant_name} on {dataset_name.upper()}")
-    print("-" * 80)
-    print(f"  Model: {model_path}")
-    
-    # Check if model and config exist
-    if not model_path.exists():
-        print(f"  ✗ Model not found! Skipping...")
-        return None
-    if not config_file.exists():
-        print(f"  ✗ Config not found! Skipping...")
-        return None
-    
-    # Check model size
-    model_size = model_path.stat().st_size / (1024 * 1024)  # MB
-    print(f"  Model Size: {model_size:.2f} MB")
-    
-    # Run testing
-    try:
-        results = DMD_run(
-            model_name='dmd',
-            dataset_name=dataset_name,
-            config_file=str(config_file),
-            seeds=[1111],  # Fixed seed
-            model_save_dir=str(model_path.parent),
-            res_save_dir=str(results_save_dir),
-            log_dir=str(results_save_dir.parent / "logs"),
-            mode='test',
-            is_distill=True
-        )
-        
-        # Extract metrics (assuming DMD_run returns results dict)
-        # Format: {'ACC7': x, 'ACC2': y, 'F1': z, 'Loss': w}
-        print(f"  ✓ Test completed successfully!")
-        if results:
-            print(f"    ACC7: {results.get('ACC7', 'N/A')}")
-            print(f"    ACC2: {results.get('ACC2', 'N/A')}")
-            print(f"    F1: {results.get('F1', 'N/A')}")
-        
-        return results
-        
-    except Exception as e:
-        print(f"  ✗ Testing failed: {str(e)}")
+
+    if (not config_file.exists()) or (not model_path.exists()):
         return None
 
+    return DMD_run(
+        model_name="dmd",
+        dataset_name="mosi",
+        config_file=str(config_file),
+        seeds=[1111],
+        model_save_dir=str(model_path.parent),
+        res_save_dir=str(results_save_dir),
+        log_dir=str(results_save_dir.parent / "logs"),
+        mode="test",
+        is_distill=False,
+    )
 
-def generate_table3_csv(all_results, output_file="experiments/ablation_study/table3_results.csv"):
-    """
-    Generate Table 3 comparison CSV
-    
-    Format:
-    Variant | MOSI_ACC7 | MOSI_ACC2 | MOSI_F1 | MOSEI_ACC7 | MOSEI_ACC2 | MOSEI_F1
-    """
+
+def generate_table4_csv(rows, output_file="experiments/ablation_study_table4/table4_results.csv"):
     output_path = dmd_root / output_file
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    print("\n" + "=" * 80)
-    print("Generating Table 3 Comparison")
-    print("=" * 80)
-    
-    # Prepare rows
-    rows = []
-    for variant_info in ABLATION_VARIANTS:
-        variant_name = variant_info["name"]
-        variant_desc = variant_info["description"]
-        
-        row = {"Variant": variant_desc}
-        
-        for dataset in DATASETS:
-            key = f"{variant_name}_{dataset}"
-            if key in all_results and all_results[key]:
-                res = all_results[key]
-                row[f"{dataset.upper()}_ACC7"] = f"{res.get('ACC7', 0.0):.2f}"
-                row[f"{dataset.upper()}_ACC2"] = f"{res.get('ACC2', 0.0):.2f}"
-                row[f"{dataset.upper()}_F1"] = f"{res.get('F1', 0.0):.2f}"
-            else:
-                row[f"{dataset.upper()}_ACC7"] = "N/A"
-                row[f"{dataset.upper()}_ACC2"] = "N/A"
-                row[f"{dataset.upper()}_F1"] = "N/A"
-        
-        rows.append(row)
-    
-    # Write CSV
-    with open(output_path, 'w', newline='') as f:
-        fieldnames = ["Variant", "MOSI_ACC7", "MOSI_ACC2", "MOSI_F1", 
-                      "MOSEI_ACC7", "MOSEI_ACC2", "MOSEI_F1"]
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+    with open(output_path, "w", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["Modality", "FD", "Acc_2", "F1_score", "Acc_7", "MAE"],
+        )
         writer.writeheader()
         writer.writerows(rows)
-    
-    print(f"\n✓ Table 3 saved to: {output_path}")
-    
-    # Also print to console
-    print("\nTable 3 - Ablation Study Results:")
-    print("-" * 120)
-    print(f"{'Variant':<40} {'MOSI ACC7':>10} {'MOSI F1':>10} {'MOSEI ACC7':>10} {'MOSEI F1':>10}")
-    print("-" * 120)
-    for row in rows:
-        print(f"{row['Variant']:<40} {row['MOSI_ACC7']:>10} {row['MOSI_F1']:>10} "
-              f"{row['MOSEI_ACC7']:>10} {row['MOSEI_F1']:>10}")
-    print("-" * 120)
+    print(f"✓ Table4 saved to: {output_path}")
 
 
 def main():
-    """Test all ablation variants and generate comparison table"""
-    print("=" * 80)
-    print("DMD Ablation Study - Batch Testing")
-    print("=" * 80)
-    print(f"Start Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 80)
-    
-    all_results = {}
-    
-    # Test all variants
-    for variant_info in ABLATION_VARIANTS:
-        variant_name = variant_info["name"]
-        for dataset in DATASETS:
-            key = f"{variant_name}_{dataset}"
-            result = test_variant(variant_name, dataset)
-            if result:
-                all_results[key] = result
-    
-    # Generate comparison table
-    generate_table3_csv(all_results)
-    
-    print("\n" + "=" * 80)
-    print("✓ Batch testing completed!")
-    print(f"End Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 80)
+    table_rows = []
+    for modality, variant, fd_tag in VARIANTS:
+        result = test_variant(variant)
+        if result is None:
+            table_rows.append({
+                "Modality": modality,
+                "FD": fd_tag,
+                "Acc_2": "N/A",
+                "F1_score": "N/A",
+                "Acc_7": "N/A",
+                "MAE": "N/A",
+            })
+            continue
+        table_rows.append({
+            "Modality": modality,
+            "FD": fd_tag,
+            "Acc_2": f"{result.get('Acc_2', 0.0):.4f}",
+            "F1_score": f"{result.get('F1_score', 0.0):.4f}",
+            "Acc_7": f"{result.get('Acc_7', 0.0):.4f}",
+            "MAE": f"{result.get('MAE', 0.0):.4f}",
+        })
+
+    generate_table4_csv(table_rows)
 
 
 if __name__ == "__main__":

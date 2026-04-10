@@ -1,5 +1,37 @@
 # DMD Ablation Study - Complete Usage Guide
 
+## Table 4 (当前可用流程：MOSI + GloVe + seed=1111)
+
+本仓库当前已支持 **单模态与FD有效性实验**（L-only / V-only / A-only，分别对比 w/o FD 与 w/ FD），对应 6 组实验：
+
+- `table4_l_wo_fd_mosi`
+- `table4_l_w_fd_mosi`
+- `table4_v_wo_fd_mosi`
+- `table4_v_w_fd_mosi`
+- `table4_a_wo_fd_mosi`
+- `table4_a_w_fd_mosi`
+
+命令顺序：
+
+```bash
+# 1) 生成配置
+python "run will be ablation.py" --mode gen
+
+# 2) 训练全部6组（或指定一组）
+python "run will be ablation.py" --mode train --all
+python "run will be ablation.py" --mode train --variant table4_l_w_fd_mosi
+
+# 3) 测试并导出 Table4 结果
+python "run will be ablation.py" --mode test
+```
+
+输出目录：
+
+- 配置：`experiments/ablation_study_table4/configs/`
+- 模型：`experiments/ablation_study_table4/models/<variant>/dmd-mosi.pth`
+- 日志：`experiments/ablation_study_table4/logs/`
+- 结果：`experiments/ablation_study_table4/table4_results.csv`
+
 ## Overview
 This guide provides step-by-step instructions for reproducing Table 3 from the CVPR 2023 paper "Decoupled Multimodal Distilling for Emotion Recognition" using **BERT features** instead of GloVe.
 

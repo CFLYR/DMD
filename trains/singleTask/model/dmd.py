@@ -17,6 +17,9 @@ class DMD(nn.Module):
         self.use_HomoGD = getattr(args, 'use_HomoGD', True)
         self.use_CA = getattr(args, 'use_CA', True)
         self.use_HeteroGD = getattr(args, 'use_HeteroGD', True)
+        self.single_modal = str(getattr(args, 'single_modal', 'LAV')).upper()
+        if self.single_modal not in ['L', 'V', 'A', 'LAV']:
+            self.single_modal = 'LAV'
         
         if args.use_bert:
             self.text_model = BertTextEncoder(use_finetune=args.use_finetune, transformers=args.transformers,
@@ -195,6 +198,13 @@ class DMD(nn.Module):
         proj_x_l = x_l if self.orig_d_l == self.d_l else self.proj_l(x_l)
         proj_x_a = x_a if self.orig_d_a == self.d_a else self.proj_a(x_a)
         proj_x_v = x_v if self.orig_d_v == self.d_v else self.proj_v(x_v)
+        if self.single_modal != 'LAV':
+            if 'L' not in self.single_modal:
+                proj_x_l = torch.zeros_like(proj_x_l)
+            if 'A' not in self.single_modal:
+                proj_x_a = torch.zeros_like(proj_x_a)
+            if 'V' not in self.single_modal:
+                proj_x_v = torch.zeros_like(proj_x_v)
         
         # Initialize result dictionary with common outputs
         res = {

@@ -52,8 +52,21 @@ class DMD(nn.Module):
         combined_dim_low = self.d_a
         combined_dim_high = 2 * self.d_a
         
-        # CRITICAL: Dynamic classifier dimension based on ablation flags
-        if not self.use_FD:  # Variant 6: Baseline
+        # CRITICAL: Dynamic classifier dimension based on ablation flags and single modal mode
+        if self.single_modal != 'LAV':
+            # Single modal mode: only use one modality
+            if self.single_modal == 'L':
+                modal_dim = self.d_l
+            elif self.single_modal == 'A':
+                modal_dim = self.d_a
+            else:  # V
+                modal_dim = self.d_v
+            
+            if not self.use_FD:
+                combined_dim = modal_dim
+            else:
+                combined_dim = 2 * modal_dim  # s_x + c_x
+        elif not self.use_FD:  # Variant 6: Baseline
             combined_dim = self.d_l + self.d_a + self.d_v
         elif self.use_FD and not self.use_HomoGD:  # Variant 5: Only FD
             combined_dim = 2 * (self.d_l + self.d_a + self.d_v)
@@ -198,13 +211,6 @@ class DMD(nn.Module):
         proj_x_l = x_l if self.orig_d_l == self.d_l else self.proj_l(x_l)
         proj_x_a = x_a if self.orig_d_a == self.d_a else self.proj_a(x_a)
         proj_x_v = x_v if self.orig_d_v == self.d_v else self.proj_v(x_v)
-        if self.single_modal != 'LAV':
-            if 'L' not in self.single_modal:
-                proj_x_l = torch.zeros_like(proj_x_l)
-            if 'A' not in self.single_modal:
-                proj_x_a = torch.zeros_like(proj_x_a)
-            if 'V' not in self.single_modal:
-                proj_x_v = torch.zeros_like(proj_x_v)
         
         # Initialize result dictionary with common outputs
         res = {
@@ -212,6 +218,60 @@ class DMD(nn.Module):
             'origin_v': proj_x_v,
             'origin_a': proj_x_a,
         }
+        
+        # SINGLE MODAL MODE: Process only the target modality
+        if self.single_modal != 'LAV':
+            if self.single_modal == 'L':
+                target_feat = proj_x_l
+            elif self.single_modal == 'A':
+                target_feat = proj_x_a
+            else:  # V
+                target_feat = proj_x_v
+            
+            # For single modal without FD: simple mean pooling and classification
+            if not self.use_FD:
+                feat = target_feat.mean(dim=2)
+                last_hs_proj = self.proj2(
+                    F.dropout(F.relu(self.proj1(feat), inplace=True), p=self.output_dropout, training=self.training))
+                last_hs_proj += feat
+                output = self.out_layer(last_hs_proj)
+                res['output_logit'] = output
+                return res
+            
+            # For single modal with FD: apply feature decoupling to target modality only
+            s_x = self.encoder_s_l(target_feat) if self.single_modal == 'L' else \
+                  (self.encoder_s_a(target_feat) if self.single_modal == 'A' else self.encoder_s_v(target_feat))
+            c_x = self.encoder_c(target_feat)
+            
+            # Pool features
+            s_x_pooled = s_x.mean(dim=2)
+            c_x_pooled = c_x.mean(dim=2)
+            
+            # Concatenate s_x and c_x for classification
+            last_hs = torch.cat([s_x_pooled, c_x_pooled], dim=1)
+            last_hs_proj = self.proj2(
+                F.dropout(F.relu(self.proj1(last_hs), inplace=True), p=self.output_dropout, training=self.training))
+            last_hs_proj += last_hs
+            output = self.out_layer(last_hs_proj)
+            
+            res['output_logit'] = output
+            res['s_x_pooled'] = s_x_pooled
+            res['c_x_pooled'] = c_x_pooled
+            res['origin_x'] = target_feat  # For reconstruction loss
+            res['s_x'] = s_x  # For cycle consistency loss
+            res['c_x'] = c_x  # For other losses
+            
+            # Reconstruction and cycle consistency for single modal FD
+            recon_x = self.decoder_l(torch.cat([s_x, c_x], dim=1)) if self.single_modal == 'L' else \
+                      (self.decoder_a(torch.cat([s_x, c_x], dim=1)) if self.single_modal == 'A' else \
+                       self.decoder_v(torch.cat([s_x, c_x], dim=1)))
+            s_x_r = self.encoder_s_l(recon_x) if self.single_modal == 'L' else \
+                    (self.encoder_s_a(recon_x) if self.single_modal == 'A' else self.encoder_s_v(recon_x))
+            
+            res['recon_x'] = recon_x
+            res['s_x_r'] = s_x_r
+            
+            return res
         
         # VARIANT 6: Baseline - Direct concatenation (no FD, no GD, no CA)
         if not self.use_FD:

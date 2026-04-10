@@ -152,8 +152,36 @@ class DMD():
                     # DECOUPLING LOSS (only if use_FD=True)
                     loss_decoupling = 0.0
                     if use_FD:
-                        # Reconstruction loss
-                        if 'recon_l' in output and output['recon_l'] is not None:
+                        # Check if single modal mode
+                        single_modal = getattr(self.args, 'single_modal', 'LAV')
+                        
+                        if single_modal != 'LAV' and 'recon_x' in output and output['recon_x'] is not None:
+                            # Single modal FD: compute loss for target modality only
+                            loss_recon = self.MSE(output['recon_x'], output['origin_x'])
+                            
+                            # Cycle consistency loss
+                            loss_s_sr = self.MSE(output['s_x'].permute(1, 2, 0), output['s_x_r'])
+                            
+                            # Orthogonality loss
+                            target_ort = torch.full((output['s_x_pooled'].size(0),), -1).to(self.args.device)
+                            loss_ort = self.cosine(output['s_x_pooled'], output['c_x_pooled'], target_ort)
+                            
+                            # Margin loss (simplified for single modal)
+                            c_x_sim = output['c_x'].contiguous().view(output['c_x'].size(0), -1)
+                            ids, feats = [], []
+                            for i in range(labels.size(0)):
+                                feats.append(c_x_sim[i].view(1, -1))
+                                ids.append(labels[i].view(1, -1))
+                            feats = torch.cat(feats, dim=0)
+                            ids = torch.cat(ids, dim=0)
+                            loss_sim = self.sim_loss(ids, feats)
+                            
+                            # Combine decoupling losses with gamma weight
+                            loss_decoupling = (loss_s_sr + loss_recon + (loss_sim + loss_ort) * gamma) * lambda_1
+                        
+                        elif 'recon_l' in output and output['recon_l'] is not None:
+                            # Multi-modal FD: compute loss for all modalities
+                            # Reconstruction loss
                             loss_recon_l = self.MSE(output['recon_l'], output['origin_l'])
                             loss_recon_v = self.MSE(output['recon_v'], output['origin_v'])
                             loss_recon_a = self.MSE(output['recon_a'], output['origin_a'])

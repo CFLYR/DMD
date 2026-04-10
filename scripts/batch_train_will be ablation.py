@@ -19,6 +19,12 @@ VARIANTS = [
     "table4_v_w_fd_mosi",
     "table4_a_wo_fd_mosi",
     "table4_a_w_fd_mosi",
+    "table4_l_wo_fd_mosei",
+    "table4_l_w_fd_mosei",
+    "table4_v_wo_fd_mosei",
+    "table4_v_w_fd_mosei",
+    "table4_a_wo_fd_mosei",
+    "table4_a_w_fd_mosei",
 ]
 
 
@@ -42,17 +48,20 @@ def train_variant(
         cfg = json.load(f)
     cmn = cfg["dmd"]["commonParams"]
 
+    dataset_name = "mosei" if "mosei" in variant_name else "mosi"
+
     print("=" * 80)
     print(f"Training {variant_name}")
     print(f"Config: {config_file}")
     print(f"Model dir: {model_save_dir}")
     print(f"Log dir: {log_save_dir}")
+    print(f"Dataset: {dataset_name}")
     print(f"single_modal: {cmn.get('single_modal', 'LAV')}, use_FD: {cmn.get('use_FD', True)}")
     print("=" * 80)
 
     kwargs = {
         "model_name": "dmd",
-        "dataset_name": "mosi",
+        "dataset_name": dataset_name,
         "config_file": str(config_file),
         "seeds": [1111],
         "model_save_dir": str(model_save_dir),

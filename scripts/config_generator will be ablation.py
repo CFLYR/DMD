@@ -1,7 +1,7 @@
 """
 Configuration Generator for Table 4 style single-modality FD ablation
-Target setting: MOSI + GloVe + seed 1111
-Experiments: (L, V, A) x (w/o FD, w/ FD)
+Target setting: MOSI/MOSEI + GloVe + seed 1111
+Experiments: (L, V, A) x (w/o FD, w/ FD) x (MOSI, MOSEI)
 """
 import copy
 import json
@@ -24,6 +24,24 @@ BASE_CONFIG = {
                 "feature_dims": [300, 5, 20],
                 "train_samples": 1284,
                 "num_classes": 3,
+                "language": "en",
+                "KeyEval": "Loss"
+            }
+        },
+        "mosei": {
+            "aligned": {
+                "featurePath": "mosei_senti_data_noalign.pkl",
+                "feature_dims": [300, 74, 35],
+                "train_samples": 16326,
+                "num_classes": 7,
+                "language": "en",
+                "KeyEval": "Loss"
+            },
+            "unaligned": {
+                "featurePath": "mosei_senti_data_noalign.pkl",
+                "feature_dims": [300, 74, 35],
+                "train_samples": 16326,
+                "num_classes": 7,
                 "language": "en",
                 "KeyEval": "Loss"
             }
@@ -65,18 +83,47 @@ BASE_CONFIG = {
                 "transformers": "bert",
                 "pretrained": "/home/.venv/lib64/python3.12/site-packages/pip/_vendor/certifi/utils/DMD/hugface",
                 "epochs": 30
+            },
+            "mosei": {
+                "attn_dropout_a": 0.2,
+                "attn_dropout_v": 0.0,
+                "relu_dropout": 0.0,
+                "embed_dropout": 0.2,
+                "res_dropout": 0.0,
+                "dst_feature_dim_nheads": [50, 10],
+                "batch_size": 16,
+                "learning_rate": 0.0001,
+                "nlevels": 4,
+                "conv1d_kernel_size_l": 5,
+                "conv1d_kernel_size_a": 5,
+                "conv1d_kernel_size_v": 5,
+                "text_dropout": 0.5,
+                "attn_dropout": 0.3,
+                "output_dropout": 0.5,
+                "grad_clip": 0.6,
+                "patience": 5,
+                "weight_decay": 0.005,
+                "transformers": "bert",
+                "pretrained": "/home/.venv/lib64/python3.12/site-packages/pip/_vendor/certifi/utils/DMD/hugface",
+                "epochs": 30
             }
         }
     }
 }
 
 EXPERIMENTS = [
-    {"name": "table4_l_wo_fd_mosi", "single_modal": "L", "use_FD": False},
-    {"name": "table4_l_w_fd_mosi", "single_modal": "L", "use_FD": True},
-    {"name": "table4_v_wo_fd_mosi", "single_modal": "V", "use_FD": False},
-    {"name": "table4_v_w_fd_mosi", "single_modal": "V", "use_FD": True},
-    {"name": "table4_a_wo_fd_mosi", "single_modal": "A", "use_FD": False},
-    {"name": "table4_a_w_fd_mosi", "single_modal": "A", "use_FD": True},
+    {"name": "table4_l_wo_fd_mosi", "single_modal": "L", "use_FD": False, "dataset": "mosi"},
+    {"name": "table4_l_w_fd_mosi", "single_modal": "L", "use_FD": True, "dataset": "mosi"},
+    {"name": "table4_v_wo_fd_mosi", "single_modal": "V", "use_FD": False, "dataset": "mosi"},
+    {"name": "table4_v_w_fd_mosi", "single_modal": "V", "use_FD": True, "dataset": "mosi"},
+    {"name": "table4_a_wo_fd_mosi", "single_modal": "A", "use_FD": False, "dataset": "mosi"},
+    {"name": "table4_a_w_fd_mosi", "single_modal": "A", "use_FD": True, "dataset": "mosi"},
+    {"name": "table4_l_wo_fd_mosei", "single_modal": "L", "use_FD": False, "dataset": "mosei"},
+    {"name": "table4_l_w_fd_mosei", "single_modal": "L", "use_FD": True, "dataset": "mosei"},
+    {"name": "table4_v_wo_fd_mosei", "single_modal": "V", "use_FD": False, "dataset": "mosei"},
+    {"name": "table4_v_w_fd_mosei", "single_modal": "V", "use_FD": True, "dataset": "mosei"},
+    {"name": "table4_a_wo_fd_mosei", "single_modal": "A", "use_FD": False, "dataset": "mosei"},
+    {"name": "table4_a_w_fd_mosei", "single_modal": "A", "use_FD": True, "dataset": "mosei"},
 ]
 
 
@@ -106,7 +153,7 @@ def generate_all_configs(output_dir="experiments/ablation_study_table4/configs")
     output_path.mkdir(parents=True, exist_ok=True)
 
     print("=" * 80)
-    print("Generate Table4 configs (MOSI + GloVe)")
+    print("Generate Table4 configs (MOSI/MOSEI + GloVe)")
     print("=" * 80)
 
     for exp in EXPERIMENTS:

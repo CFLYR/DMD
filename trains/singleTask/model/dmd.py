@@ -228,12 +228,42 @@ class DMD(nn.Module):
             else:  # V
                 target_feat = proj_x_v
             
+            # DEBUG: Print shapes for single modal
+            if not hasattr(self, '_debug_printed'):
+                print(f"\n{'='*80}")
+                print(f"DEBUG: SINGLE MODAL MODE - {self.single_modal}")
+                print(f"  target_feat shape: {target_feat.shape}")
+                print(f"  expected: [batch_size, feature_dim, seq_len]")
+                print(f"  feature_dim (d_{self.single_modal.lower()}): {getattr(self, f'd_{self.single_modal.lower()}')}")
+                print(f"  combined_dim: {self.out_layer.in_features}")
+                print(f"  use_FD: {self.use_FD}")
+                print(f"{'='*80}\n")
+                self._debug_printed = True
+            
             # For single modal without FD: simple mean pooling and classification
             if not self.use_FD:
                 feat = target_feat.mean(dim=2)
+                
+                # DEBUG: Print feat shape
+                if not hasattr(self, '_debug_feat_printed'):
+                    print(f"\n{'='*80}")
+                    print(f"DEBUG: SINGLE MODAL w/o FD - BEFORE CLASSIFICATION")
+                    print(f"  feat shape after mean(dim=2): {feat.shape}")
+                    print(f"  expected: [batch_size, feature_dim]")
+                    print(f"  proj1 input dim: {self.proj1.in_features}")
+                    print(f"  proj1 output dim: {self.proj1.out_features}")
+                    print(f"  out_layer input dim: {self.out_layer.in_features}")
+                    print(f"  out_layer output dim: {self.out_layer.out_features}")
+                    print(f"{'='*80}\n")
+                    self._debug_feat_printed = True
+                
+                # SIMPLIFIED VERSION: Direct classification without residual connection
+                # For low-dimensional features (A: 5, V: 20), simpler is better
                 last_hs_proj = self.proj2(
                     F.dropout(F.relu(self.proj1(feat), inplace=True), p=self.output_dropout, training=self.training))
-                last_hs_proj += feat
+                # Add residual connection only if dimensions match
+                if last_hs_proj.shape == feat.shape:
+                    last_hs_proj = last_hs_proj + feat
                 output = self.out_layer(last_hs_proj)
                 res['output_logit'] = output
                 return res

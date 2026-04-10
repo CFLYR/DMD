@@ -1,5 +1,5 @@
 """
-Main entry for Table 4 single-modality FD ablation on MOSI + GloVe
+Main entry for Table 4 single-modality FD ablation on MOSI/MOSEI + GloVe
 """
 import argparse
 import subprocess
@@ -18,6 +18,12 @@ VARIANTS = [
     "table4_v_w_fd_mosi",
     "table4_a_wo_fd_mosi",
     "table4_a_w_fd_mosi",
+    "table4_l_wo_fd_mosei",
+    "table4_l_w_fd_mosei",
+    "table4_v_wo_fd_mosei",
+    "table4_v_w_fd_mosei",
+    "table4_a_wo_fd_mosei",
+    "table4_a_w_fd_mosei",
 ]
 
 

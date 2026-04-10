@@ -9,10 +9,10 @@ from pathlib import Path
 
 BASE_CONFIG = {
     "datasetCommonParams": {
-        "dataset_root_dir": "./dataset",
+        "dataset_root_dir": "./dataset/GloVe",
         "mosi": {
             "aligned": {
-                "featurePath": "MOSI/Processed/aligned_50.pkl",
+                "featurePath": "mosi_data_noalign.pkl",
                 "feature_dims": [300, 5, 20],
                 "train_samples": 1284,
                 "num_classes": 3,
@@ -20,7 +20,7 @@ BASE_CONFIG = {
                 "KeyEval": "Loss"
             },
             "unaligned": {
-                "featurePath": "MOSI/Processed/unaligned_50.pkl",
+                "featurePath": "mosi_data_noalign.pkl",
                 "feature_dims": [300, 5, 20],
                 "train_samples": 1284,
                 "num_classes": 3,
@@ -31,7 +31,7 @@ BASE_CONFIG = {
     },
     "dmd": {
         "commonParams": {
-            "need_data_aligned": True,
+            "need_data_aligned": False,
             "need_model_aligned": True,
             "early_stop": 10,
             "use_bert": False,

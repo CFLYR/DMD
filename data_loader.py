@@ -25,7 +25,11 @@ class MMDataset(Dataset):
             self.text = data[self.mode]['text'].astype(np.float32)  # GLOVE feature
         self.vision = data[self.mode]['vision'].astype(np.float32)
         self.audio = data[self.mode]['audio'].astype(np.float32)
-        self.raw_text = data[self.mode]['raw_text']
+        # GloVe dataset doesn't have raw_text, only BERT dataset has it
+        if 'raw_text' in data[self.mode]:
+            self.raw_text = data[self.mode]['raw_text']
+        else:
+            self.raw_text = None
         self.ids = data[self.mode]['id']
 
         if self.args['feature_T'] != "":
@@ -48,21 +52,40 @@ class MMDataset(Dataset):
             self.vision = data_V[self.mode]['vision'].astype(np.float32)
             self.args['feature_dims'][2] = self.vision.shape[2]
 
-        self.labels = {
-            'M': np.array(data[self.mode]['regression_labels']).astype(np.float32)
-        }
+        # GloVe dataset uses 'labels', BERT dataset may use 'regression_labels'
+        if 'regression_labels' in data[self.mode]:
+            self.labels = {
+                'M': np.array(data[self.mode]['regression_labels']).astype(np.float32)
+            }
+        else:
+            self.labels = {
+                'M': np.array(data[self.mode]['labels']).astype(np.float32)
+            }
 
         logger.info(f"{self.mode} samples: {self.labels['M'].shape}")
 
         if not self.args['need_data_aligned']:
+            # GloVe dataset may not have audio_lengths/vision_lengths
             if self.args['feature_A'] != "":
-                self.audio_lengths = list(data_A[self.mode]['audio_lengths'])
+                if 'audio_lengths' in data_A[self.mode]:
+                    self.audio_lengths = list(data_A[self.mode]['audio_lengths'])
+                else:
+                    self.audio_lengths = [self.audio.shape[1]] * len(self.audio)
             else:
-                self.audio_lengths = data[self.mode]['audio_lengths']
+                if 'audio_lengths' in data[self.mode]:
+                    self.audio_lengths = data[self.mode]['audio_lengths']
+                else:
+                    self.audio_lengths = [self.audio.shape[1]] * len(self.audio)
             if self.args['feature_V'] != "":
-                self.vision_lengths = list(data_V[self.mode]['vision_lengths'])
+                if 'vision_lengths' in data_V[self.mode]:
+                    self.vision_lengths = list(data_V[self.mode]['vision_lengths'])
+                else:
+                    self.vision_lengths = [self.vision.shape[1]] * len(self.vision)
             else:
-                self.vision_lengths = data[self.mode]['vision_lengths']
+                if 'vision_lengths' in data[self.mode]:
+                    self.vision_lengths = data[self.mode]['vision_lengths']
+                else:
+                    self.vision_lengths = [self.vision.shape[1]] * len(self.vision)
         self.audio[self.audio == -np.inf] = 0
 
         if 'need_normalized' in self.args and self.args['need_normalized']:
@@ -122,13 +145,19 @@ class MMDataset(Dataset):
         return self.text.shape[2], self.audio.shape[2], self.vision.shape[2]
 
     def __getitem__(self, index):
+        # Convert numpy string to Python string to avoid |S14 type error in DataLoader
+        id_val = self.ids[index]
+        if isinstance(id_val, np.ndarray):
+            id_val = id_val.tolist()
+        elif isinstance(id_val, bytes):
+            id_val = id_val.decode('utf-8')
         sample = {
-            'raw_text': self.raw_text[index],
-            'text': torch.Tensor(self.text[index]), 
+            'raw_text': self.raw_text[index] if self.raw_text is not None else "",
+            'text': torch.Tensor(self.text[index]),
             'audio': torch.Tensor(self.audio[index]),
             'vision': torch.Tensor(self.vision[index]),
             'index': index,
-            'id': self.ids[index],
+            'id': id_val,
             'labels': {k: torch.Tensor(v[index].reshape(-1)) for k, v in self.labels.items()}
         } 
         if not self.args['need_data_aligned']:

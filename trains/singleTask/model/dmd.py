@@ -383,20 +383,28 @@ class DMD(nn.Module):
                 hs_proj_a_high += last_h_a
                 logits_a_high = self.out_layer_a_high(hs_proj_a_high)
             else:
-                # Variant 3: HeteroGD without CA - use decoupled features directly
-                # Concatenate s_x features for hetero processing
-                s_l_flat = s_l.transpose(0, 1).contiguous().view(x_l.size(0), -1)
-                s_v_flat = s_v.transpose(0, 1).contiguous().view(x_v.size(0), -1)
-                s_a_flat = s_a.transpose(0, 1).contiguous().view(x_a.size(0), -1)
+                # Variant 3: HeteroGD without CA - use decoupled pooled features
+                # Concatenate s_x_pooled and c_x_pooled to get 2*d_l = 100 dimensions
+                last_h_l = torch.cat([s_l_pooled, c_l_pooled], dim=1)  # [batch, 100]
+                last_h_v = torch.cat([s_v_pooled, c_v_pooled], dim=1)  # [batch, 100]
+                last_h_a = torch.cat([s_a_pooled, c_a_pooled], dim=1)  # [batch, 100]
                 
-                # Simple projection (dimensions may need adjustment)
-                # For Variant 3, we use the decoupled specific features
-                hs_proj_l_high = s_l_flat
-                hs_proj_v_high = s_v_flat
-                hs_proj_a_high = s_a_flat
-                logits_l_high = None  # Not applicable without CA
-                logits_v_high = None
-                logits_a_high = None
+                # Project through HeteroGD layers (same as with CA)
+                hs_proj_l_high = self.proj2_l_high(
+                    F.dropout(F.relu(self.proj1_l_high(last_h_l), inplace=True), p=self.output_dropout, training=self.training))
+                hs_proj_l_high += last_h_l
+                logits_l_high = self.out_layer_l_high(hs_proj_l_high)
+
+                hs_proj_v_high = self.proj2_v_high(
+                    F.dropout(F.relu(self.proj1_v_high(last_h_v), inplace=True), p=self.output_dropout, training=self.training))
+                hs_proj_v_high += last_h_v
+                logits_v_high = self.out_layer_v_high(hs_proj_v_high)
+
+                hs_proj_a_high = self.proj2_a_high(
+                    F.dropout(F.relu(self.proj1_a_high(last_h_a), inplace=True), p=self.output_dropout,
+                              training=self.training))
+                hs_proj_a_high += last_h_a
+                logits_a_high = self.out_layer_a_high(hs_proj_a_high)
             
             res.update({
                 'logits_l_hetero': logits_l_high,
